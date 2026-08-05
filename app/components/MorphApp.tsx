@@ -26,6 +26,7 @@ import {
   Upload,
   WandSparkles,
   X,
+  Loader2,
 } from "lucide-react";
 import {
   type ChangeEvent,
@@ -37,6 +38,27 @@ import {
   useState,
 } from "react";
 import VaseScene from "./VaseScene";
+import ModelViewer, { type ModelViewerHandle } from "./ModelViewer";
+import QrCode from "./QrCode";
+import type { PublicTask } from "@/lib/meshy";
+import {
+  absoluteUrl,
+  analyzeImage,
+  listModels,
+  loadSourceImage,
+  modelUrls,
+  refreshPreview,
+  removeModel,
+  renderForUpload,
+  saveModel,
+  updateModel,
+  useModels,
+  usePlatform,
+  type ImageAnalysis,
+  type Rotation,
+  type SourceImage,
+  type StoredModel,
+} from "@/lib/models";
 
 type Screen =
   | "landing"
@@ -100,24 +122,81 @@ const planData = [
   },
 ];
 
-const qrCells = Array.from({ length: 29 * 29 }, (_, index) => {
-  const row = Math.floor(index / 29);
-  const col = index % 29;
-  const finder = (r: number, c: number) =>
-    r >= 0 &&
-    r <= 6 &&
-    c >= 0 &&
-    c <= 6 &&
-    (r === 0 ||
-      r === 6 ||
-      c === 0 ||
-      c === 6 ||
-      (r >= 2 && r <= 4 && c >= 2 && c <= 4));
-  const inFinder =
-    finder(row, col) || finder(row, col - 22) || finder(row - 22, col);
-  const noise = (row * 17 + col * 31 + row * col * 7) % 11 < 5;
-  return inFinder || noise;
-});
+const STATUS_LABEL: Record<StoredModel["status"], string> = {
+  PENDING: "ДАРААЛАЛД",
+  IN_PROGRESS: "БОЛОВСРУУЛЖ БАЙНА",
+  SUCCEEDED: "БЭЛЭН",
+  FAILED: "АМЖИЛТГҮЙ",
+  CANCELED: "ЦУЦАЛСАН",
+};
+
+const BASE_TITLE = "MORPH AR — Нэг зургаас шинэ хэмжээс рүү";
+
+/**
+ * Таб ар талд байхад системийн мэдэгдэл харуулах.
+ * Зөвшөөрөл асуухгүй — хэрэглэгч өөрөө идэвхжүүлээгүй бол зүгээр өнгөрнө.
+ */
+function notifyDone(body: string, title: string) {
+  if (typeof Notification === "undefined") return;
+  if (document.visibilityState === "visible") return;
+  if (Notification.permission !== "granted") return;
+  try {
+    new Notification(title, { body, icon: "/favicon.ico" });
+  } catch {
+    /* зарим хөтөч service worker шаарддаг */
+  }
+}
+
+type Check = { label: string; value: string; level: "ok" | "warn" };
+
+/** Canvas-аас гарсан бодит хэмжигдэхүүнийг хүнд ойлгомжтой болгох. */
+function describeAnalysis(analysis: ImageAnalysis): Check[] {
+  const { brightness, contrast, subjectCoverage, backgroundUniformity } =
+    analysis;
+
+  const light: Check =
+    brightness < 0.22
+      ? { label: "Гэрэлтүүлэг", value: "Бүдэг", level: "warn" }
+      : brightness > 0.82
+        ? { label: "Гэрэлтүүлэг", value: "Хэт цайвар", level: "warn" }
+        : { label: "Гэрэлтүүлэг", value: "Сайн", level: "ok" };
+
+  const detail: Check =
+    contrast < 0.35
+      ? { label: "Ялгарал", value: "Сул", level: "warn" }
+      : { label: "Ялгарал", value: "Сайн", level: "ok" };
+
+  const frame: Check =
+    subjectCoverage < 0.12
+      ? { label: "Объектын хэмжээ", value: "Хэт жижиг", level: "warn" }
+      : subjectCoverage > 0.86
+        ? { label: "Объектын хэмжээ", value: "Кадраас халих", level: "warn" }
+        : { label: "Объектын хэмжээ", value: "Сайн", level: "ok" };
+
+  const background: Check =
+    backgroundUniformity < 0.45
+      ? { label: "Дэвсгэр", value: "Замбараагүй", level: "warn" }
+      : { label: "Дэвсгэр", value: "Цэвэр", level: "ok" };
+
+  return [frame, background, light, detail];
+}
+
+/** Секундыг «2 мин 10 сек» болгох. */
+function formatEta(seconds: number) {
+  if (seconds < 60) return `${seconds} сек`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return rest ? `${minutes} мин ${rest} сек` : `${minutes} мин`;
+}
+
+function relativeDate(timestamp: number) {
+  const days = Math.floor((Date.now() - timestamp) / 86_400_000);
+  if (days <= 0) return "ӨНӨӨДӨР";
+  if (days === 1) return "ӨЧИГДӨР";
+  return new Date(timestamp)
+    .toLocaleDateString("mn-MN", { month: "2-digit", day: "2-digit" })
+    .replace(/\//g, ".");
+}
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
@@ -149,60 +228,160 @@ function SectionLabel({ children }: { children: ReactNode }) {
   return <div className="section-label">{children}</div>;
 }
 
-function Rail({
-  active,
+/**
+ * Навигацын ЦОРЫН ГАНЦ эх сурвалж.
+ *
+ * Толгой хэсгийн цэс, утасны цэс, хажуугийн rail гурвуулаа энэ жагсаалтаас
+ * үүснэ. Ингэснээр нэг хэсэг рүү хоёр өөр нэрээр орох давхардал үүсэхгүй.
+ */
+const NAV_ITEMS = [
+  { key: "upload", label: "Үүсгэх", icon: Plus },
+  { key: "models", label: "Миний загварууд", icon: Box },
+  { key: "pricing", label: "Үнийн багц", icon: Grid2X2 },
+] as const;
+
+/** Аль цэсний зүйл идэвхтэй болохыг тодорхойлно. */
+function navKeyFor(screen: Screen): (typeof NAV_ITEMS)[number]["key"] | null {
+  if (screen === "upload" || screen === "generate") return "upload";
+  if (screen === "models" || screen === "detail" || screen === "studio")
+    return "models";
+  if (screen === "pricing") return "pricing";
+  return null;
+}
+
+/**
+ * Аппын ЦОРЫН ГАНЦ навигац.
+ *
+ * Өмнө нь нүүр хуудас навбар, аппын дэлгэцүүд хажуугийн rail гэсэн хоёр
+ * өөр систем ашигладаг байсан. Одоо бүх дэлгэц энэ нэг толгойг хуваалцана:
+ *   компьютер → хэвтээ цэс,  утас → гамбургер + доод таб.
+ */
+function SiteHeader({
+  screen,
   go,
+  balance,
+  onOpenMenu,
+  variant = "app",
 }: {
-  active: "new" | "models";
+  screen: Screen;
   go: (screen: Screen) => void;
+  /** Meshy дансны бодит кредит. null = ачаалж байна / боломжгүй. */
+  balance: number | null;
+  onOpenMenu: () => void;
+  /** "landing" дээр CTA товч, "app" дээр кредит харагдана */
+  variant?: "landing" | "app";
 }) {
+  const activeKey = navKeyFor(screen);
+  const runs = balance === null ? null : Math.floor(balance / 30);
+
   return (
-    <aside className="dashboard-rail">
-      <div>
-        <button className="rail-brand" onClick={() => go("landing")}>
-          <Brand compact />
+    <header className="site-header">
+      <button className="header-brand" onClick={() => go("landing")}>
+        <Brand />
+      </button>
+
+      <nav className="desktop-nav" aria-label="Үндсэн цэс">
+        {NAV_ITEMS.map((item) => {
+          const active = activeKey === item.key;
+          return (
+            <button
+              key={item.key}
+              className={active ? "active" : ""}
+              aria-current={active ? "page" : undefined}
+              onClick={() => go(item.key as Screen)}
+            >
+              {item.label}
+            </button>
+          );
+        })}
+
+        <span className="nav-divider" />
+
+        {variant === "app" ? (
+          <button
+            className="credit-chip"
+            onClick={() => go("pricing")}
+            title={
+              runs === null
+                ? "Кредит шалгаж байна"
+                : `≈ ${runs} загвар үүсгэх боломжтой`
+            }
+          >
+            <Sparkles size={13} />
+            {balance === null ? "—" : balance.toLocaleString()}
+            <small>КРЕДИТ</small>
+          </button>
+        ) : null}
+
+        <button onClick={() => go("auth")}>Нэвтрэх</button>
+        <Button onClick={() => go("upload")}>
+          {variant === "landing" ? "Одоо эхлэх" : "Шинэ загвар"}
+        </Button>
+      </nav>
+
+      <div className="mobile-nav-actions">
+        <Button onClick={() => go("upload")}>Эхлэх</Button>
+        <button className="icon-button" aria-label="Цэс нээх" onClick={onOpenMenu}>
+          <Menu size={19} />
         </button>
-        <nav className="rail-nav" aria-label="Загварын хэсэг">
-          <button
-            className={active === "new" ? "active" : ""}
-            onClick={() => go("upload")}
-          >
-            <Plus size={15} /> Шинэ загвар
-          </button>
-          <button
-            className={active === "models" ? "active" : ""}
-            onClick={() => go("models")}
-          >
-            <Box size={14} /> Миний загварууд
-          </button>
-          <button onClick={() => go("detail")}>
-            <RotateCcw size={14} /> Сүүлд ашигласан
-          </button>
-          <button onClick={() => go("pricing")}>
-            <Grid2X2 size={14} /> Тохиргоо
-          </button>
-        </nav>
       </div>
-      <div className="rail-bottom">
-        <div className="usage-card">
-          <div className="usage-head">
-            <span>ҮҮСГЭЛТ</span>
-            <b>7 / 10</b>
-          </div>
-          <div className="usage-track">
-            <span />
-          </div>
-          <button onClick={() => go("pricing")}>Багц шинэчлэх →</button>
-        </div>
-        <div className="profile-chip">
-          <span className="avatar" />
-          <span>
-            <b>Ануужин Б.</b>
-            <small>ЭХЛЭЛ БАГЦ</small>
-          </span>
-        </div>
-      </div>
-    </aside>
+    </header>
+  );
+}
+
+/**
+ * Утасны доод навигац.
+ *
+ * Desktop дээрх зүүн rail нь жижиг дэлгэц дээр далдардаг байсан тул
+ * хэрэглэгч дэлгэц хооронд шилжих аргагүй болдог байсан. Доод таб нь эрхий
+ * хуруунд хүрэх зайд байрлана.
+ */
+function MobileTabs({
+  screen,
+  go,
+  hasModel,
+  onOpenMenu,
+}: {
+  screen: Screen;
+  go: (screen: Screen) => void;
+  hasModel: boolean;
+  onOpenMenu: () => void;
+}) {
+  // Эхний хоёр нь толгойн цэстэй тохирно, дараагийн хоёр нь ажлын урсгалын алхам.
+  const tabs = [
+    { key: "upload", label: "Үүсгэх", icon: Plus, enabled: true },
+    { key: "models", label: "Загварууд", icon: Box, enabled: true },
+    { key: "studio", label: "Студи", icon: Orbit, enabled: hasModel },
+    { key: "ar", label: "AR", icon: Smartphone, enabled: hasModel },
+  ] as const;
+
+  return (
+    <nav className="mobile-tabs" aria-label="Үндсэн навигац">
+      {tabs.map((tab) => {
+        const Icon = tab.icon;
+        const active =
+          screen === tab.key ||
+          (tab.key === "upload" && screen === "generate") ||
+          (tab.key === "models" && screen === "detail");
+        return (
+          <button
+            key={tab.key}
+            className={active ? "active" : ""}
+            disabled={!tab.enabled}
+            aria-current={active ? "page" : undefined}
+            onClick={() => go(tab.key as Screen)}
+          >
+            <Icon size={19} />
+            <span>{tab.label}</span>
+          </button>
+        );
+      })}
+      {/* Нүүр, үнийн багц, нэвтрэх рүү гарах цорын ганц зам */}
+      <button onClick={onOpenMenu} aria-label="Цэс нээх">
+        <Menu size={19} />
+        <span>Цэс</span>
+      </button>
+    </nav>
   );
 }
 
@@ -285,12 +464,7 @@ export default function MorphApp() {
   const [heroProgress, setHeroProgress] = useState(0);
   const [heroStage, setHeroStage] = useState(0);
   const [navOpen, setNavOpen] = useState(false);
-  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
-  const [uploadName, setUploadName] = useState("vaar-sample.jpg");
   const [dragging, setDragging] = useState(false);
-  const [rotated, setRotated] = useState(0);
-  const [cropped, setCropped] = useState(false);
-  const [noBackground, setNoBackground] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [quality, setQuality] = useState<"fast" | "high">("high");
   const [generation, setGeneration] = useState(0);
@@ -305,14 +479,33 @@ export default function MorphApp() {
   const [autoRotate, setAutoRotate] = useState(true);
   const [grid, setGrid] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
+  // Утсан дээр студийн панель доод хуудас (bottom sheet) болж нээгддэг
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [galleryFilter, setGalleryFilter] = useState("Бүгд");
   const [yearly, setYearly] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
-  const [mobileAr, setMobileAr] = useState(false);
-  const [arPlaced, setArPlaced] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [modal, setModal] = useState<Modal>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  /* ---------------------------- Meshy төлөв ---------------------------- */
+  // 1–4 эх зураг. Эргүүлэлт/тайралт нь эдгээрт бодитоор хэрэглэгдэнэ.
+  const [sources, setSources] = useState<SourceImage[]>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [loadingImage, setLoadingImage] = useState(false);
+  const [imageEnhancement, setImageEnhancement] = useState(true);
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const [taskKind, setTaskKind] = useState<string | null>(null);
+  const [task, setTask] = useState<PublicTask | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
+  const models = useModels();
+  const platform = usePlatform();
+  const viewerRef = useRef<ModelViewerHandle>(null);
+
+  const modelReady = task?.status === "SUCCEEDED";
+  const urls = taskId ? modelUrls(taskId) : null;
 
   const addToast = useCallback((text: string) => {
     const id = Date.now() + Math.random();
@@ -322,32 +515,171 @@ export default function MorphApp() {
     }, 2800);
   }, []);
 
+  // Тандалтын callback дотроос одоогийн дэлгэцийг унших (deps-д оруулахгүйгээр)
+  const screenRef = useRef<Screen>(screen);
+  useEffect(() => {
+    screenRef.current = screen;
+  }, [screen]);
+
   const go = useCallback((next: Screen) => {
-    if (next === "generate") setGeneration(0);
     setScreen(next);
     setNavOpen(false);
     setDownloadOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
+  /**
+   * Meshy дансны бодит кредитийг татах.
+   * Хуудас нээгдэхэд болон даалгавар илгээсний дараа дуудагдана.
+   */
+  const refreshBalance = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const response = await fetch("/api/balance", { signal });
+      if (!response.ok) return null;
+      const data = (await response.json()) as { balance?: number };
+      return typeof data.balance === "number" ? data.balance : null;
+    } catch {
+      return null; // кредит харуулах нь заавал биш
+    }
+  }, []);
+
   useEffect(() => {
-    if (screen !== "generate") return;
-    const interval = window.setInterval(() => {
-      setGeneration((value) => Math.min(100, value + 2));
-    }, 85);
-    const finish = window.setTimeout(() => {
-      window.clearInterval(interval);
-      setGeneration(100);
-      window.setTimeout(() => {
-        setScreen("studio");
-        addToast("3D загвар бэлэн болсон");
-      }, 650);
-    }, 4400);
-    return () => {
-      window.clearInterval(interval);
-      window.clearTimeout(finish);
+    const controller = new AbortController();
+    refreshBalance(controller.signal).then((value) => {
+      if (!controller.signal.aborted && value !== null) setBalance(value);
+    });
+    return () => controller.abort();
+  }, [refreshBalance]);
+
+  /**
+   * URL-аас даалгаврыг сэргээх.
+   *
+   * Өмнө нь taskId зөвхөн React state-д байсан тул хуудсаа refresh хийхэд
+   * ажиллаж буй үүсгэлт алга болдог байсан. Одоо ?task=<id> хаягт үлдэнэ.
+   */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get("task");
+    if (fromUrl) {
+      // Энэ утгыг эхний render-т уншиж болохгүй: сервер дээр `window` байхгүй
+      // тул hydration зөрөх болно. Тиймээс hydration дууссаны дараа энд
+      // тавьж байгаа нь зориудын шийдэл.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTaskId(fromUrl);
+      setTaskKind(params.get("kind"));
+      setScreen(params.get("screen") === "generate" ? "generate" : "studio");
+      return;
+    }
+    // URL-д байхгүй бол сангаас дуусаагүй даалгавар байвал сэргээнэ.
+    const pending = listModels().find(
+      (model) => model.status === "PENDING" || model.status === "IN_PROGRESS",
+    );
+    if (pending) {
+      setTaskId(pending.id);
+      setTaskKind(pending.kind ?? null);
+    }
+  }, []);
+
+  /** Даалгавар солигдоход хаягийг шинэчлэх (буцах товч ажиллана). */
+  useEffect(() => {
+    if (!taskId) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("task", taskId);
+    if (taskKind) url.searchParams.set("kind", taskKind);
+    url.searchParams.delete("screen");
+    window.history.replaceState(null, "", url);
+  }, [taskId, taskKind]);
+
+  /**
+   * Meshy даалгаврыг тандах. Хүсэлт нь /api/task/<id> рүү явж, тэндээс
+   * серверийн түлхүүрээр Meshy-тэй ярилцана — API key браузерт гарахгүй.
+   */
+  useEffect(() => {
+    if (!taskId) return;
+    // Дууссан даалгаврыг дахин тандахгүй.
+    if (
+      task?.status === "SUCCEEDED" ||
+      task?.status === "FAILED" ||
+      task?.status === "CANCELED"
+    ) {
+      return;
+    }
+
+    let alive = true;
+
+    const poll = async () => {
+      try {
+        const query = taskKind ? `?kind=${encodeURIComponent(taskKind)}` : "";
+        const response = await fetch(`/api/task/${taskId}${query}`, {
+          cache: "no-store",
+        });
+        if (!alive) return;
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as {
+            error?: string;
+          } | null;
+          throw new Error(payload?.error ?? "Төлөв шалгаж чадсангүй.");
+        }
+
+        const next = (await response.json()) as PublicTask;
+        if (!alive) return;
+
+        setTask(next);
+        setGeneration(next.progress);
+        if (next.kind) setTaskKind(next.kind);
+        updateModel(next.id, { status: next.status });
+
+        // Зөвхөн үүсгэлтийн дэлгэц дээр байхад мэдэгдэж, дэлгэц солино —
+        // сангаас өмнө дуусгасан загвар нээхэд дэмий toast гарахгүй.
+        const onGenerateScreen = screenRef.current === "generate";
+
+        if (next.status === "SUCCEEDED") {
+          if (onGenerateScreen) {
+            addToast("3D загвар бэлэн болсон");
+            notifyDone("3D загвар бэлэн боллоо", "MORPH AR");
+            setScreen("studio");
+          }
+        } else if (next.status === "FAILED" || next.status === "CANCELED") {
+          setGenError(next.error ?? "Үүсгэлт амжилтгүй боллоо.");
+          if (onGenerateScreen) {
+            addToast("Үүсгэлт амжилтгүй боллоо");
+            notifyDone("Үүсгэлт амжилтгүй боллоо", "MORPH AR");
+            setScreen("upload");
+          }
+        }
+      } catch (error) {
+        if (!alive) return;
+        setGenError(
+          error instanceof Error ? error.message : "Сүлжээний алдаа гарлаа.",
+        );
+      }
     };
-  }, [addToast, screen]);
+
+    void poll();
+    // Дараалалд байхад олон дуудах шаардлагагүй.
+    const interval = window.setInterval(
+      poll,
+      task?.status === "PENDING" ? 5000 : 2500,
+    );
+
+    return () => {
+      alive = false;
+      window.clearInterval(interval);
+    };
+  }, [addToast, taskId, taskKind, task?.status]);
+
+  /** Таб ар талд байхад гарчигт явцыг харуулах. */
+  useEffect(() => {
+    if (!task || task.status === "SUCCEEDED" || task.status === "FAILED") {
+      document.title = BASE_TITLE;
+      return;
+    }
+    document.title = `${Math.round(task.progress)}% · ${BASE_TITLE}`;
+    return () => {
+      document.title = BASE_TITLE;
+    };
+  }, [task]);
 
   useEffect(() => {
     if (screen !== "landing") return;
@@ -362,100 +694,235 @@ export default function MorphApp() {
     return () => window.clearInterval(interval);
   }, [screen]);
 
-  const loadFile = (file?: File) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      addToast("Зургийн файл сонгоно уу");
-      return;
+  /* --------------------------- эх зурагтай ажиллах -------------------------- */
+
+  const addFiles = async (files: FileList | File[] | null | undefined) => {
+    if (!files) return;
+
+    const accepted: File[] = [];
+    for (const file of Array.from(files)) {
+      if (!/^image\/(jpeg|jpg|png|webp)$/i.test(file.type)) {
+        addToast(`${file.name}: зөвхөн JPG, PNG, WEBP`);
+        continue;
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        addToast(`${file.name}: 20 MB-аас том байна`);
+        continue;
+      }
+      accepted.push(file);
     }
-    if (file.size > 20 * 1024 * 1024) {
-      addToast("Файлын хэмжээ 20 MB-аас бага байх ёстой");
-      return;
+    if (accepted.length === 0) return;
+
+    setLoadingImage(true);
+    try {
+      const room = 4 - sources.length;
+      if (room <= 0) {
+        addToast("Хамгийн ихдээ 4 зураг");
+        return;
+      }
+      if (accepted.length > room) {
+        addToast(`Зөвхөн эхний ${room} зургийг авлаа`);
+      }
+
+      const loaded = await Promise.all(
+        accepted.slice(0, room).map((file) => loadSourceImage(file)),
+      );
+
+      setSources((current) => {
+        const next = [...current, ...loaded].slice(0, 4);
+        setActiveIndex(next.length - 1);
+        return next;
+      });
+      setGenError(null);
+      addToast(
+        loaded.length > 1
+          ? `${loaded.length} зураг орлоо`
+          : "Зураг амжилттай орлоо",
+      );
+    } catch {
+      addToast("Зураг уншиж чадсангүй");
+    } finally {
+      setLoadingImage(false);
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setUploadPreview(String(reader.result));
-      setUploadName(file.name);
-      addToast("Зураг амжилттай орлоо");
-    };
-    reader.readAsDataURL(file);
   };
 
-  const applySample = () => {
-    setUploadPreview("sample");
-    setUploadName("vaar-sample.jpg");
-    addToast("Жишээ зураг сонгогдлоо");
+  const handleFile = (event: ChangeEvent<HTMLInputElement>) => {
+    void addFiles(event.target.files);
+    event.target.value = "";
   };
-
-  const handleFile = (event: ChangeEvent<HTMLInputElement>) =>
-    loadFile(event.target.files?.[0]);
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setDragging(false);
-    loadFile(event.dataTransfer.files?.[0]);
+    void addFiles(event.dataTransfer.files);
   };
 
-  const copyLink = async () => {
+  /** Эргүүлэлт/тайралтыг өөрчлөөд урьдчилсан харагдацыг дахин зурна. */
+  const editSource = async (id: string, patch: Partial<SourceImage>) => {
+    const current = sources.find((source) => source.id === id);
+    if (!current) return;
+
+    const updated = await refreshPreview({ ...current, ...patch });
+    const analysis = await analyzeImage(updated.preview).catch(
+      () => current.analysis,
+    );
+
+    setSources((list) =>
+      list.map((source) =>
+        source.id === id ? { ...updated, analysis } : source,
+      ),
+    );
+  };
+
+  const removeSource = (id: string) => {
+    setSources((list) => {
+      const next = list.filter((source) => source.id !== id);
+      setActiveIndex((index) => Math.max(0, Math.min(index, next.length - 1)));
+      return next;
+    });
+  };
+
+  /** Meshy рүү даалгавар илгээнэ (1 зураг → image-to-3d, 2+ → multi). */
+  const startGeneration = async () => {
+    if (sources.length === 0 || submitting) return;
+
+    setSubmitting(true);
+    setGenError(null);
+    setGeneration(0);
+    setTask(null);
+    setTaskId(null);
+    setTaskKind(null);
+
     try {
-      await navigator.clipboard.writeText(window.location.href + "#ar");
+      // Эргүүлэлт, тайралтыг ЭНД бодитоор хэрэглэж байж илгээнэ.
+      const images = await Promise.all(sources.map(renderForUpload));
+
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images, quality, imageEnhancement }),
+      });
+
+      const payload = (await response.json()) as {
+        id?: string;
+        kind?: string;
+        task?: PublicTask | null;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.id) {
+        throw new Error(payload.error ?? "Үүсгэх хүсэлт амжилтгүй боллоо.");
+      }
+
+      setTaskId(payload.id);
+      setTaskKind(payload.kind ?? null);
+      setTask(payload.task ?? null);
+
+      saveModel({
+        id: payload.id,
+        name: sources[0].name.replace(/\.[^.]+$/, "") || "Нэргүй загвар",
+        status: payload.task?.status ?? "PENDING",
+        createdAt: Date.now(),
+        quality,
+        kind: payload.kind as StoredModel["kind"],
+        sourceCount: sources.length,
+        thumbnail: sources[0].preview,
+      });
+      go("generate");
+      void refreshBalance().then((value) => {
+        if (value !== null) setBalance(value);
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Тодорхойгүй алдаа гарлаа.";
+      setGenError(message);
+      addToast(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  /** Сангаас загвар нээх */
+  const openModel = useCallback(
+    (model: StoredModel, screenName: Screen = "detail") => {
+      setTaskId(model.id);
+      setTask(null);
+      setGenError(null);
+      go(screenName);
+    },
+    [go],
+  );
+
+  const arLink = taskId ? absoluteUrl(modelUrls(taskId).arPage) : "";
+  const currentModel = models.find((model) => model.id === taskId);
+
+  const copyLink = async () => {
+    if (!arLink) {
+      addToast("Эхлээд загвар үүсгэнэ үү");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(arLink);
       addToast("AR холбоос хууллаа");
     } catch {
       addToast("Холбоос хуулах боломжгүй байна");
     }
   };
 
+  /**
+   * Төхөөрөмжийн жинхэнэ хуваалцах цэсийг нээх (Web Share API).
+   * Утсан дээр Messenger, Message, WhatsApp зэрэг бүх апп гарч ирнэ.
+   * Дэмждэггүй хөтөч дээр холбоосыг хуулна.
+   */
+  const shareLink = async () => {
+    if (!arLink) {
+      addToast("Эхлээд загвар үүсгэнэ үү");
+      return;
+    }
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({
+          title: currentModel?.name ?? "MORPH AR загвар",
+          text: "Энэ 3D загварыг утсаараа AR-аар хараарай:",
+          url: arLink,
+        });
+        return;
+      } catch (error) {
+        // Хэрэглэгч цуцалсан бол дуугарахгүй.
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      }
+    }
+    await copyLink();
+  };
+
+  /** Утсан дээр шууд AR нээх, компьютер дээр зөвлөмж харуулах */
+  const openAr = () => {
+    if (viewerRef.current?.canActivateAR()) {
+      viewerRef.current.activateAR();
+      return;
+    }
+    if (!urls) return;
+    if (platform === "ios") {
+      window.location.href = urls.usdz;
+    } else if (platform === "android") {
+      const file = absoluteUrl(urls.glb);
+      window.location.href =
+        `intent://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(file)}` +
+        `&mode=ar_preferred&resizable=false#Intent;scheme=https;` +
+        `package=com.google.ar.core;action=android.intent.action.VIEW;end;`;
+    } else {
+      addToast("QR кодыг утсаараа уншуулна уу");
+    }
+  };
+
   const renderLanding = () => (
     <div className="landing page-enter">
-      <header className="site-header">
-        <button className="header-brand" onClick={() => go("landing")}>
-          <Brand />
-        </button>
-        <nav className="desktop-nav" aria-label="Үндсэн цэс">
-          <button className="active" onClick={() => go("upload")}>
-            Үүсгэх
-          </button>
-          <button onClick={() => go("models")}>Миний загварууд</button>
-          <button onClick={() => go("detail")}>Жишээ загварууд</button>
-          <button onClick={() => go("pricing")}>Үнийн багц</button>
-          <span className="nav-divider" />
-          <button onClick={() => go("auth")}>Нэвтрэх</button>
-          <Button onClick={() => go("upload")}>Одоо эхлэх</Button>
-        </nav>
-        <div className="mobile-nav-actions">
-          <Button onClick={() => go("upload")}>Эхлэх</Button>
-          <button
-            className="icon-button"
-            aria-label="Цэс нээх"
-            onClick={() => setNavOpen(true)}
-          >
-            <Menu size={19} />
-          </button>
-        </div>
-      </header>
-
-      {navOpen && (
-        <div className="mobile-menu page-enter">
-          <button
-            className="mobile-close"
-            aria-label="Цэс хаах"
-            onClick={() => setNavOpen(false)}
-          >
-            <X />
-          </button>
-          {[
-            { n: "Үүсгэх", s: "upload" },
-            { n: "Миний загварууд", s: "models" },
-            { n: "Жишээ загварууд", s: "detail" },
-            { n: "Үнийн багц", s: "pricing" },
-            { n: "Нэвтрэх", s: "auth" },
-          ].map((item) => (
-            <button key={item.n} onClick={() => go(item.s as Screen)}>
-              {item.n}
-              <ArrowRight />
-            </button>
-          ))}
-        </div>
-      )}
+      <SiteHeader
+        screen={screen}
+        go={go}
+        balance={balance}
+        onOpenMenu={() => setNavOpen(true)}
+        variant="landing"
+      />
 
       <main>
         <section className="hero-section">
@@ -479,8 +946,8 @@ export default function MorphApp() {
               <Button onClick={() => go("upload")}>
                 3D загвар үүсгэх <ArrowRight size={17} />
               </Button>
-              <Button variant="secondary" onClick={() => go("detail")}>
-                Жишээ үзэх
+              <Button variant="secondary" onClick={() => go("models")}>
+                Миний загварууд
               </Button>
             </div>
             <div className="hero-meta">
@@ -520,16 +987,39 @@ export default function MorphApp() {
                 176 MM
               </span>
             </div>
-            <div className="source-card mt-25">
-              <div>
-                ЭХ ЗУРАГ
-                <br />
-                ВААР · JPG
+            {/* Эх зураг → 3D загвар гэдгийг харуулах "полароид" карт.
+                Утсан дээр талбай багатай тул тайзны доод зүүн буланд
+                орж, холбоос шугам нь ваар руу заана. */}
+            <figure className="source-card">
+              <div className="source-thumb">
+                {/* Тайзан дээрх ЯГ ТЭР 3D загвар — ижил геометр, материал,
+                    гэрэлтүүлэг. Зөвхөн нэг кадр зураад зогсоно. */}
+                <VaseScene
+                  className="source-vase"
+                  color="#e8e2d6"
+                  compact
+                  still
+                  interactive={false}
+                  autoRotate={false}
+                  distance={4.05}
+                  cameraY={0.9}
+                  label="Эх зураг — ваар"
+                />
+                <span className="source-ticks" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <em>1024²</em>
               </div>
-              <span>
-                1024×1024 <b>✓</b>
-              </span>
-            </div>
+              <figcaption>
+                <b>ЭХ ЗУРАГ</b>
+                <span>
+                  ВААР · JPG <i>✓</i>
+                </span>
+              </figcaption>
+            </figure>
           </div>
         </section>
 
@@ -539,7 +1029,7 @@ export default function MorphApp() {
               <button
                 key={item}
                 onClick={() =>
-                  go(index === 0 ? "upload" : index === 1 ? "studio" : "ar")
+                  go(index === 0 ? "upload" : index === 1 ? "models" : "models")
                 }
               >
                 <span>0{index + 1}</span>
@@ -596,181 +1086,262 @@ export default function MorphApp() {
     </div>
   );
 
-  const renderUpload = () => (
-    <div className="dashboard-layout page-enter">
-      <Rail active="new" go={go} />
-      <main className="dashboard-main">
-        <ProgressHeader step={1} />
-        <div className="upload-content">
-          {!uploadPreview ? (
-            <>
-              <h1>Зургаа энд оруулна уу</h1>
-              <p>
-                Нэг объект тод харагдсан, цэвэр дэвсгэртэй зураг ашиглавал илүү
-                сайн үр дүн гарна.
-              </p>
-              <div
-                className={`drop-zone ${dragging ? "dragging" : ""}`}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setDragging(true);
-                }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={handleDrop}
-                onClick={() => fileInput.current?.click()}
-              >
-                <CornerFrame />
-                <span className="scan-line" />
-                <span className="drop-label">DROP ZONE</span>
-                <div className="drop-center">
-                  <span className="upload-glyph">
-                    <Upload />
-                  </span>
-                  <div className="drop-actions">
-                    <Button
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        fileInput.current?.click();
-                      }}
-                    >
-                      Зураг сонгох
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        applySample();
-                      }}
-                    >
-                      Жишээ зураг ашиглах
-                    </Button>
-                  </div>
-                  <span className="file-note">
-                    JPG, PNG, WEBP · 20 MB ХҮРТЭЛ
-                  </span>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="upload-ready page-enter">
-              <div className="image-editor">
-                <h1>Зураг бэлэн боллоо</h1>
-                <p>Объектын хүрээг шалгаад 3D загвараа үүсгээрэй.</p>
+  const renderUpload = () => {
+    const active = sources[activeIndex] ?? sources[0] ?? null;
+    const checks = active?.analysis ? describeAnalysis(active.analysis) : null;
+
+    return (
+      <div className="dashboard-layout page-enter">
+        <SiteHeader
+          screen={screen}
+          go={go}
+          balance={balance}
+          onOpenMenu={() => setNavOpen(true)}
+        />
+        <main className="dashboard-main">
+          <ProgressHeader step={1} />
+          <div className="upload-content">
+            {sources.length === 0 ? (
+              <>
+                <h1>Зургаа энд оруулна уу</h1>
+                <p>
+                  Нэг объект тод харагдсан, цэвэр дэвсгэртэй зураг ашиглавал
+                  илүү сайн үр дүн гарна. <b>Олон өнцгөөс авсан 2–4 зураг</b>{" "}
+                  оруулбал геометр мэдэгдэхүйц сайжирна.
+                </p>
                 <div
-                  className={`image-preview ${noBackground ? "transparent" : ""}`}
+                  className={`drop-zone ${dragging ? "dragging" : ""}`}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setDragging(true);
+                  }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={handleDrop}
+                  onClick={() => fileInput.current?.click()}
                 >
                   <CornerFrame />
-                  {uploadPreview === "sample" ? (
-                    <div
-                      className={`sample-object ${cropped ? "cropped" : ""}`}
-                      style={{ transform: `rotate(${rotated}deg)` }}
+                  <span className="scan-line" />
+                  <span className="drop-label">DROP ZONE</span>
+                  <div className="drop-center">
+                    <span className="upload-glyph">
+                      {loadingImage ? <Loader2 className="spin" /> : <Upload />}
+                    </span>
+                    <div className="drop-actions">
+                      <Button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          fileInput.current?.click();
+                        }}
+                        disabled={loadingImage}
+                      >
+                        {loadingImage ? "Уншиж байна…" : "Зураг сонгох"}
+                      </Button>
+                    </div>
+                    <span className="file-note">
+                      JPG, PNG, WEBP · 4 ХҮРТЭЛ ЗУРАГ
+                    </span>
+                  </div>
+                </div>
+                {genError && <p className="form-error">{genError}</p>}
+              </>
+            ) : (
+              <div className="upload-ready page-enter">
+                <div className="image-editor">
+                  <h1>
+                    {sources.length > 1
+                      ? `${sources.length} зураг бэлэн`
+                      : "Зураг бэлэн боллоо"}
+                  </h1>
+                  <p>
+                    {sources.length > 1
+                      ? "Бүх зураг нэг объектын өөр өнцөг байх ёстой."
+                      : "Өөр өнцгөөс нэмж зураг оруулбал үр дүн сайжирна."}
+                  </p>
+
+                  <div className="image-preview">
+                    <CornerFrame />
+                    {active && (
+                      <div
+                        className="uploaded-image"
+                        role="img"
+                        aria-label={`Оруулсан зураг: ${active.name}`}
+                        style={{ backgroundImage: `url(${active.preview})` }}
+                      />
+                    )}
+                    <span className="preview-meta">{active?.name}</span>
+                  </div>
+
+                  {/* Олон зургийн жагсаалт */}
+                  <div className="source-strip">
+                    {sources.map((source, index) => (
+                      <button
+                        key={source.id}
+                        className={`source-chip ${index === activeIndex ? "active" : ""}`}
+                        onClick={() => setActiveIndex(index)}
+                        title={source.name}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={source.preview} alt="" />
+                        <em>{index === 0 ? "ГОЛ" : `${index + 1}`}</em>
+                        <span
+                          className="source-remove"
+                          role="button"
+                          tabIndex={-1}
+                          aria-label="Хасах"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            removeSource(source.id);
+                          }}
+                        >
+                          <X size={11} />
+                        </span>
+                      </button>
+                    ))}
+                    {sources.length < 4 && (
+                      <button
+                        className="source-chip source-add"
+                        onClick={() => fileInput.current?.click()}
+                        disabled={loadingImage}
+                        aria-label="Зураг нэмэх"
+                      >
+                        {loadingImage ? (
+                          <Loader2 size={18} className="spin" />
+                        ) : (
+                          <Plus size={18} />
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="editor-tools">
+                    <button
+                      className={active?.cropped ? "active" : ""}
+                      onClick={() =>
+                        active &&
+                        void editSource(active.id, {
+                          cropped: !active.cropped,
+                        })
+                      }
                     >
-                      <MiniVase />
-                    </div>
-                  ) : (
-                    <div
-                      className={`uploaded-image ${cropped ? "cropped" : ""}`}
-                      role="img"
-                      aria-label="Оруулсан зураг"
-                      style={{
-                        backgroundImage: `url(${uploadPreview})`,
-                        transform: `rotate(${rotated}deg)`,
-                      }}
-                    />
-                  )}
-                  <span className="preview-meta">{uploadName} · 1024×1024</span>
+                      Квадрат тайрах
+                    </button>
+                    <button
+                      onClick={() =>
+                        active &&
+                        void editSource(active.id, {
+                          rotation: (((active.rotation + 90) % 360) as Rotation),
+                        })
+                      }
+                    >
+                      Эргүүлэх ({active?.rotation ?? 0}°)
+                    </button>
+                    <button onClick={() => fileInput.current?.click()}>
+                      Зураг нэмэх
+                    </button>
+                  </div>
+                  <p className="editor-hint">
+                    Эргүүлэлт, тайралт нь Meshy рүү илгээх өгөгдөлд бодитоор
+                    хэрэглэгдэнэ.
+                  </p>
                 </div>
-                <div className="editor-tools">
-                  <button
-                    className={cropped ? "active" : ""}
-                    onClick={() => setCropped(!cropped)}
-                  >
-                    Тайрах
-                  </button>
-                  <button
-                    onClick={() => setRotated((value) => (value + 90) % 360)}
-                  >
-                    Эргүүлэх
-                  </button>
-                  <button
-                    className={noBackground ? "active" : ""}
-                    onClick={() => setNoBackground(!noBackground)}
-                  >
-                    Дэвсгэр арилгах
-                  </button>
-                  <button onClick={() => fileInput.current?.click()}>
-                    Зураг солих
-                  </button>
-                </div>
-              </div>
-              <aside className="upload-options">
-                <div className="check-card">
-                  <SectionLabel>ЗУРГИЙН ШАЛГАЛТ</SectionLabel>
-                  <span>
-                    <b>Объект тодорхой</b>
-                    <em>Сайн</em>
-                  </span>
-                  <span>
-                    <b>Дэвсгэр цэвэр</b>
-                    <em>Сайн</em>
-                  </span>
-                  <span>
-                    <b>Гэрэлтүүлэг</b>
-                    <strong>Дунд</strong>
-                  </span>
-                </div>
-                <div className="advanced-card">
-                  <button onClick={() => setAdvanced(!advanced)}>
-                    Нэмэлт тохиргоо{" "}
-                    <ChevronDown
-                      className={advanced ? "rotated" : ""}
-                      size={17}
-                    />
-                  </button>
-                  {advanced && (
-                    <div className="advanced-body page-enter">
-                      <span className="option-title">ЧАНАР</span>
-                      <div className="segmented">
-                        <button
-                          className={quality === "fast" ? "active" : ""}
-                          onClick={() => setQuality("fast")}
-                        >
-                          Хурдан
-                        </button>
-                        <button
-                          className={quality === "high" ? "active" : ""}
-                          onClick={() => setQuality("high")}
-                        >
-                          Өндөр
-                        </button>
+
+                <aside className="upload-options">
+                  <div className="check-card">
+                    <SectionLabel>ЗУРГИЙН ШАЛГАЛТ</SectionLabel>
+                    {checks ? (
+                      checks.map((check) => (
+                        <span key={check.label}>
+                          <b>{check.label}</b>
+                          {check.level === "warn" ? (
+                            <strong>{check.value}</strong>
+                          ) : (
+                            <em>{check.value}</em>
+                          )}
+                        </span>
+                      ))
+                    ) : (
+                      <span>
+                        <b>Шинжилж байна…</b>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="advanced-card">
+                    <button onClick={() => setAdvanced(!advanced)}>
+                      Нэмэлт тохиргоо{" "}
+                      <ChevronDown
+                        className={advanced ? "rotated" : ""}
+                        size={17}
+                      />
+                    </button>
+                    {advanced && (
+                      <div className="advanced-body page-enter">
+                        <span className="option-title">ЧАНАР</span>
+                        <div className="segmented">
+                          <button
+                            className={quality === "fast" ? "active" : ""}
+                            onClick={() => setQuality("fast")}
+                          >
+                            Хурдан
+                          </button>
+                          <button
+                            className={quality === "high" ? "active" : ""}
+                            onClick={() => setQuality("high")}
+                          >
+                            Өндөр
+                          </button>
+                        </div>
+                        <label className="toggle-row">
+                          Зургийг AI-аар сайжруулах
+                          <input
+                            type="checkbox"
+                            checked={imageEnhancement}
+                            onChange={(event) =>
+                              setImageEnhancement(event.target.checked)
+                            }
+                          />
+                          <i />
+                        </label>
+                        <p className="option-hint">
+                          Идэвхгүй болговол оруулсан зургийн төрхийг яг хэвээр
+                          нь хадгална.
+                        </p>
                       </div>
-                      <label className="toggle-row">
-                        AR-д тохируулах <input type="checkbox" defaultChecked />
-                        <i />
-                      </label>
-                    </div>
-                  )}
-                </div>
-                <Button className="create-model" onClick={() => go("generate")}>
-                  <WandSparkles size={17} /> 3D загвар үүсгэх
-                </Button>
-                <span className="generation-note">
-                  1 ҮҮСГЭЛТ АШИГЛАНА · ≈ 40 СЕК
-                </span>
-              </aside>
-            </div>
-          )}
-        </div>
-      </main>
-      <input
-        ref={fileInput}
-        className="sr-only"
-        type="file"
-        accept="image/png,image/jpeg,image/webp"
-        onChange={handleFile}
-      />
-    </div>
-  );
+                    )}
+                  </div>
+
+                  {/* Утсан дээр энэ блок доод талд наалдана */}
+                  <div className="upload-cta">
+                    <Button
+                      className="create-model"
+                      onClick={() => void startGeneration()}
+                      disabled={submitting || sources.length === 0}
+                    >
+                      <WandSparkles size={17} />
+                      {submitting ? "Илгээж байна…" : "3D загвар үүсгэх"}
+                    </Button>
+                    <span className="generation-note">
+                      {sources.length > 1 ? "MULTI-IMAGE" : "IMAGE"} · GLB +
+                      USDZ · ≈ 1–3 МИНУТ
+                    </span>
+                  </div>
+                  {genError && <p className="form-error">{genError}</p>}
+                </aside>
+              </div>
+            )}
+          </div>
+        </main>
+        <input
+          ref={fileInput}
+          className="sr-only"
+          type="file"
+          multiple
+          accept="image/png,image/jpeg,image/webp"
+          onChange={handleFile}
+        />
+      </div>
+    );
+  };
 
   const renderGenerate = () => {
     const stages = [
@@ -782,31 +1353,69 @@ export default function MorphApp() {
     return (
       <div className="generation-screen page-enter">
         <header>
-          <Brand compact />
+          <button className="header-brand" onClick={() => go("landing")}>
+            <Brand compact />
+          </button>
           <span>AI PROCESS · MORPH ENGINE 2.4</span>
         </header>
         <main>
           <div className="generation-preview">
             <CornerFrame />
             <span className="scan-line" />
-            <VaseScene
-              className="vase-canvas"
-              progress={Math.min(1, generation / 92)}
-              color="#e8e2d6"
-            />
+            {sources[0] ? (
+              <div
+                className="generation-source"
+                role="img"
+                aria-label="Эх зураг"
+                style={{ backgroundImage: `url(${sources[0].preview})` }}
+              />
+            ) : (
+              <VaseScene
+                className="vase-canvas"
+                progress={Math.min(1, generation / 92)}
+                color="#e8e2d6"
+              />
+            )}
             <span className="generation-percent">
               {Math.round(generation)}
               <small>%</small>
             </span>
           </div>
           <div className="generation-info">
-            <SectionLabel>ТҮР ХҮЛЭЭНЭ ҮҮ</SectionLabel>
+            <SectionLabel>
+              {task?.status === "PENDING" ? "ДАРААЛАЛД БАЙНА" : "ТҮР ХҮЛЭЭНЭ ҮҮ"}
+            </SectionLabel>
             <h1>
               3D загвар
               <br />
               үүсгэж байна.
             </h1>
-            <p>Зургийн хэлбэр, материал, гүнийг AI-аар тооцоолж байна.</p>
+            <p>
+              Meshy AI зургийн хэлбэр, материал, гүнийг тооцоолж байна. Энэ
+              хуудсыг хаасан ч үүсгэлт үргэлжилнэ.
+            </p>
+
+            {/* Meshy-гээс ирсэн бодит дарааллын байрлал / үлдсэн хугацаа */}
+            <div className="generation-meta">
+              {task?.queuePosition !== null &&
+                task?.queuePosition !== undefined && (
+                  <span>
+                    <b>ДАРААЛАЛ</b>
+                    {task.queuePosition === 0
+                      ? "Удахгүй эхэлнэ"
+                      : `${task.queuePosition} даалгаврын дараа`}
+                  </span>
+                )}
+              {task?.etaSeconds ? (
+                <span>
+                  <b>ҮЛДСЭН</b>≈ {formatEta(task.etaSeconds)}
+                </span>
+              ) : null}
+              <span>
+                <b>ЭХ ЗУРАГ</b>
+                {sources.length || 1} ш
+              </span>
+            </div>
             <div className="generation-stages">
               {stages.map(([name, from, to], index) => {
                 const done = generation >= to;
@@ -829,8 +1438,9 @@ export default function MorphApp() {
                 );
               })}
             </div>
+            {genError && <p className="form-error">{genError}</p>}
             <button className="cancel-generation" onClick={() => go("upload")}>
-              Үүсгэлтийг цуцлах
+              Буцах (үүсгэлт цаанаа үргэлжилнэ)
             </button>
           </div>
         </main>
@@ -867,8 +1477,12 @@ export default function MorphApp() {
               <ArrowLeft size={16} />
             </button>
             <span>
-              <b>Шаазан ваар</b>
-              <small>БҮХ ӨӨРЧЛӨЛТ ХАДГАЛАГДСАН</small>
+              <b>{currentModel?.name ?? "3D загвар"}</b>
+              <small>
+                {currentModel?.sourceCount && currentModel.sourceCount > 1
+                  ? `${currentModel.sourceCount} ЗУРАГНААС · MULTI-IMAGE`
+                  : "MESHY AI · IMAGE TO 3D"}
+              </small>
             </span>
           </div>
           <div>
@@ -876,50 +1490,66 @@ export default function MorphApp() {
               <Share2 size={15} /> Хуваалцах
             </button>
             <span className="download-wrap">
-              <button onClick={() => setDownloadOpen(!downloadOpen)}>
+              <button
+                onClick={() => setDownloadOpen(!downloadOpen)}
+                disabled={!modelReady}
+              >
                 <Download size={15} /> Татах <ChevronDown size={13} />
               </button>
-              {downloadOpen && (
+              {downloadOpen && urls && (
                 <span className="download-menu page-enter">
-                  <button
-                    onClick={() => {
-                      addToast("GLB файл бэлтгэгдэж байна");
-                      setDownloadOpen(false);
-                    }}
-                  >
+                  <a href={urls.glbDownload} onClick={() => setDownloadOpen(false)}>
                     GLB · WEB / ANDROID
-                  </button>
-                  <button
-                    onClick={() => {
-                      addToast("USDZ файл бэлтгэгдэж байна");
-                      setDownloadOpen(false);
-                    }}
+                  </a>
+                  <a
+                    href={urls.usdzDownload}
+                    onClick={() => setDownloadOpen(false)}
                   >
                     USDZ · iOS / AR
-                  </button>
+                  </a>
                 </span>
               )}
             </span>
-            <Button onClick={() => go("ar")}>
+            <Button onClick={() => go("ar")} disabled={!modelReady}>
               <Smartphone size={15} /> AR-аар харах
             </Button>
           </div>
         </header>
         <div className="studio-workspace">
-          <div className="studio-viewport">
+          <div className={`studio-viewport ${grid ? "with-grid" : ""}`}>
             <CornerFrame />
-            <VaseScene
-              className="vase-canvas"
-              color={vaseColor}
-              material={material}
-              roughness={roughness}
-              autoRotate={autoRotate}
-              showGrid={grid}
-            />
-            <span className="viewport-label">PERSPECTIVE · 3D</span>
+            {modelReady && urls ? (
+              <ModelViewer
+                ref={viewerRef}
+                src={urls.glb}
+                iosSrc={urls.usdz}
+                poster={urls.poster}
+                alt="Үүсгэсэн 3D загвар"
+                ar
+                autoRotate={autoRotate}
+                exposure={0.4 + (light / 100) * 1.4}
+                shadowIntensity={0.3 + (roughness / 100) * 0.7}
+                className="vase-canvas"
+              />
+            ) : (
+              <VaseScene
+                className="vase-canvas"
+                color={vaseColor}
+                material={material}
+                roughness={roughness}
+                autoRotate={autoRotate}
+                showGrid={grid}
+              />
+            )}
+            <span className="viewport-label">
+              {modelReady ? "MESHY AI · GLB" : "ЖИШЭЭ ЗАГВАР"}
+            </span>
             <span className="viewport-dimensions">
-              0.42 M × 1.76 M × 0.42 M<br />
-              46,280 POLYGON
+              {modelReady
+                ? `${(task?.creditsUsed ?? 0).toLocaleString()} CREDIT`
+                : "ЗАГВАР СОНГООГҮЙ"}
+              <br />
+              GLB · USDZ
             </span>
             <div className="viewport-tools">
               <button className="active" aria-label="Эргүүлэх">
@@ -930,7 +1560,11 @@ export default function MorphApp() {
               </button>
               <button
                 aria-label="Харагдацыг сэргээх"
-                onClick={() => addToast("Харагдацыг сэргээлээ")}
+                onClick={() => {
+                  const element = viewerRef.current?.element();
+                  if (element) element.cameraOrbit = "0deg 75deg 105%";
+                  addToast("Харагдацыг сэргээлээ");
+                }}
               >
                 <RotateCcw size={17} />
               </button>
@@ -943,7 +1577,18 @@ export default function MorphApp() {
               </button>
             </div>
           </div>
-          <aside className="studio-panel">
+          <aside className={`studio-panel ${sheetOpen ? "sheet-open" : ""}`}>
+            {/* Зөвхөн утсан дээр харагдана — панелийг дээш татаж нээнэ */}
+            <button
+              className="sheet-handle"
+              aria-expanded={sheetOpen}
+              aria-label={sheetOpen ? "Тохиргоог хаах" : "Тохиргоог нээх"}
+              onClick={() => setSheetOpen((open) => !open)}
+            >
+              <i />
+              <span>{sheetOpen ? "Хаах" : "Тохиргоо"}</span>
+              <ChevronDown size={15} className={sheetOpen ? "" : "rotated"} />
+            </button>
             <div className="studio-tabs">
               <button
                 className={studioTab === "look" ? "active" : ""}
@@ -967,6 +1612,13 @@ export default function MorphApp() {
             <div className="panel-body">
               {studioTab === "look" && (
                 <>
+                  {modelReady && (
+                    <p className="panel-note">
+                      Гэрэлтүүлэг, сүүдэр нь загварт шууд нөлөөлнө. Материал,
+                      өнгө нь зөвхөн жишээ дүрслэлд хамаарна — Meshy-ийн
+                      текстур хэвээр үлдэнэ.
+                    </p>
+                  )}
                   <SectionLabel>МАТЕРИАЛ</SectionLabel>
                   <div className="material-grid">
                     {(
@@ -1036,13 +1688,13 @@ export default function MorphApp() {
                   />
                   <div className="dimension-card">
                     <span>
-                      ӨНДӨР <b>1.76 M</b>
+                      ФОРМАТ <b>GLB · USDZ</b>
                     </span>
                     <span>
-                      ӨРГӨН <b>0.42 M</b>
+                      ПОЛИГОН <b>{quality === "fast" ? "~20,000" : "~50,000"}</b>
                     </span>
                     <span>
-                      ПОЛИГОН <b>46,280</b>
+                      ХЭМЖЭЭ <b>AUTO (AI)</b>
                     </span>
                   </div>
                 </>
@@ -1094,65 +1746,7 @@ export default function MorphApp() {
     </div>
   );
 
-  const renderAr = () =>
-    mobileAr ? (
-      <div className="mobile-ar page-enter">
-        <div className="ar-room-grid" />
-        {arPlaced && (
-          <VaseScene
-            className="mobile-ar-vase"
-            color={vaseColor}
-            material={material}
-          />
-        )}
-        {!arPlaced && (
-          <div className="surface-scanner">
-            <i />
-            <span>ГАДАРГУУ ИЛРҮҮЛЖ БАЙНА</span>
-          </div>
-        )}
-        <header>
-          <button
-            onClick={() => {
-              setMobileAr(false);
-              setArPlaced(false);
-            }}
-          >
-            <X size={15} /> AR горимоос гарах
-          </button>
-          <span>
-            <i />
-            {arPlaced ? "БАЙРЛУУЛСАН" : "ХАЙЖ БАЙНА"}
-          </span>
-        </header>
-        <div className="mobile-ar-bottom">
-          {!arPlaced ? (
-            <Button
-              onClick={() => {
-                setArPlaced(true);
-                addToast("Загварыг байрлууллаа");
-              }}
-            >
-              Загвар байрлуулах
-            </Button>
-          ) : (
-            <div>
-              <button onClick={() => setArPlaced(false)}>
-                Байрлалыг сэргээх
-              </button>
-              <button
-                className="shutter"
-                aria-label="Зураг авах"
-                onClick={() => addToast("Зураг хадгалагдлаа")}
-              >
-                <i />
-              </button>
-              <span>ЗУРАГ АВАХ</span>
-            </div>
-          )}
-        </div>
-      </div>
-    ) : (
+  const renderAr = () => (
       <div className="ar-screen page-enter">
         <header>
           <button onClick={() => go("studio")}>
@@ -1163,30 +1757,49 @@ export default function MorphApp() {
         <main>
           <div className="ar-preview">
             <CornerFrame />
-            <VaseScene
-              className="vase-canvas"
-              color={vaseColor}
-              material={material}
-            />
-            <span>1 : 1 · БОДИТ ХЭМЖЭЭ · 176 MM</span>
+            {modelReady && urls ? (
+              <ModelViewer
+                ref={viewerRef}
+                src={urls.glb}
+                iosSrc={urls.usdz}
+                poster={urls.poster}
+                alt="AR-д бэлэн 3D загвар"
+                ar
+                arScale="auto"
+                autoRotate
+                className="vase-canvas"
+              />
+            ) : (
+              <VaseScene
+                className="vase-canvas"
+                color={vaseColor}
+                material={material}
+              />
+            )}
+            <span>1 : 1 · БОДИТ ХЭМЖЭЭ (AUTO-SIZE)</span>
           </div>
           <div className="ar-content">
             <div>
               <h1>Загвараа бодит орчинд байрлуулаарай.</h1>
               <p>
-                QR кодыг утсаараа уншуулж, 3D загвараа өөрийн орчинд AR-аар
-                хараарай.
+                {platform === "desktop"
+                  ? "QR кодыг утсаараа уншуулж, 3D загвараа өөрийн орчинд AR-аар хараарай."
+                  : "Доорх товчийг дарж камераа нээгээд загвараа шалан дээр байрлуулаарай."}
               </p>
             </div>
+
+            {platform !== "desktop" && (
+              <Button className="ar-launch" onClick={openAr} disabled={!modelReady}>
+                <Smartphone size={16} /> Бодит орчинд байрлуулах
+              </Button>
+            )}
+
             <div className="qr-row">
-              <div className="qr-code" aria-label="AR холбоосын QR код">
-                {qrCells.map((on, index) => (
-                  <i key={index} className={on ? "on" : ""} />
-                ))}
-                <span>
-                  <Brand compact />
-                </span>
-              </div>
+              {arLink ? (
+                <QrCode value={arLink} size={228} />
+              ) : (
+                <div className="qr-empty">Эхлээд загвар үүсгэнэ үү</div>
+              )}
               <div className="qr-steps">
                 <span>
                   <b>01</b>QR кодыг уншуулна
@@ -1203,44 +1816,53 @@ export default function MorphApp() {
               <Button variant="secondary" onClick={copyLink}>
                 <Copy size={15} /> AR холбоос хуулах
               </Button>
-              <Button variant="secondary" onClick={() => setModal("send")}>
-                <Smartphone size={15} /> Утас руу илгээх
+              <Button variant="secondary" onClick={() => void shareLink()}>
+                <Share2 size={15} /> Хуваалцах
               </Button>
             </div>
-            <button
-              className="mobile-mode-link"
-              onClick={() => setMobileAr(true)}
-            >
-              → УТАСНЫ AR ГОРИМ ҮЗЭХ
-            </button>
+            {arLink && (
+              <a className="mobile-mode-link" href={arLink}>
+                → AR ХУУДСЫГ ШУУД НЭЭХ
+              </a>
+            )}
           </div>
         </main>
       </div>
     );
 
   const renderModels = () => {
-    const cards = [
-      ["Шаазан ваар", "ӨНӨӨДӨР · 18.2 MB", "#e8e2d6", "БЭЛЭН"],
-      ["Улбар шар сандал", "ӨЧИГДӨР · 24.6 MB", "#d9714f", "БЭЛЭН"],
-      ["Тавцангийн гэрэл", "08.03 · 15.1 MB", "#8068ff", "БОЛОВСРУУЛЖ БАЙНА"],
-      ["Спорт пүүз", "07.28 · 10.5 MB", "#c9ff63", "НООРОГ"],
-    ];
+    const visible = models.filter((model) => {
+      if (galleryFilter === "Бүгд") return true;
+      if (galleryFilter === "Бэлэн") return model.status === "SUCCEEDED";
+      if (galleryFilter === "Боловсруулж буй")
+        return model.status === "PENDING" || model.status === "IN_PROGRESS";
+      return model.status === "FAILED" || model.status === "CANCELED";
+    });
+
     return (
       <div className="dashboard-layout page-enter">
-        <Rail active="models" go={go} />
+        <SiteHeader
+          screen={screen}
+          go={go}
+          balance={balance}
+          onOpenMenu={() => setNavOpen(true)}
+        />
         <main className="models-main">
           <header>
             <div>
               <SectionLabel>ТАНЫ САН</SectionLabel>
               <h1>Миний загварууд</h1>
-              <small>4 ЗАГВАР · 68.4 MB</small>
+              <small>
+                {models.length} ЗАГВАР ·{" "}
+                {models.filter((m) => m.status === "SUCCEEDED").length} БЭЛЭН
+              </small>
             </div>
             <Button onClick={() => go("upload")}>
               <Plus size={16} /> Шинэ загвар үүсгэх
             </Button>
           </header>
           <div className="filter-row">
-            {["Бүгд", "Бэлэн", "Боловсруулж буй", "Ноорог"].map((filter) => (
+            {["Бүгд", "Бэлэн", "Боловсруулж буй", "Амжилтгүй"].map((filter) => (
               <button
                 key={filter}
                 className={galleryFilter === filter ? "active" : ""}
@@ -1250,110 +1872,184 @@ export default function MorphApp() {
               </button>
             ))}
           </div>
-          <div className="model-grid">
-            {cards
-              .filter(
-                (card) =>
-                  galleryFilter === "Бүгд" ||
-                  (galleryFilter === "Бэлэн" && card[3] === "БЭЛЭН") ||
-                  (galleryFilter === "Боловсруулж буй" &&
-                    card[3].startsWith("БОЛОВС")) ||
-                  (galleryFilter === "Ноорог" && card[3] === "НООРОГ"),
-              )
-              .map((card) => (
-                <article key={card[0]}>
-                  <button className="model-thumb" onClick={() => go("detail")}>
+          {visible.length === 0 ? (
+            <div className="models-empty">
+              <Box size={26} />
+              <b>Одоохондоо загвар алга</b>
+              <p>
+                Зураг оруулаад эхний 3D загвараа үүсгээрэй. Загварууд энэ
+                хөтөч дээр хадгалагдана.
+              </p>
+              <Button onClick={() => go("upload")}>
+                <Plus size={16} /> Загвар үүсгэх
+              </Button>
+            </div>
+          ) : (
+            <div className="model-grid">
+              {visible.map((model) => (
+                <article key={model.id}>
+                  <button
+                    className="model-thumb"
+                    onClick={() => openModel(model)}
+                  >
                     <span className="model-grid-bg" />
-                    <MiniVase color={card[2]} />
-                    <em className={card[3] === "БЭЛЭН" ? "ready" : ""}>
-                      {card[3]}
+                    {/* next/image ашиглахгүй: эх сурвалж нь Meshy proxy эсвэл
+                        data: URI тул Worker-ийн зураг оновчлол хэрэггүй. */}
+                    {model.status === "SUCCEEDED" ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={modelUrls(model.id).poster}
+                        alt=""
+                        className="model-poster"
+                        loading="lazy"
+                      />
+                    ) : model.thumbnail ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={model.thumbnail}
+                        alt=""
+                        className="model-poster is-source"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <MiniVase />
+                    )}
+                    <em className={model.status === "SUCCEEDED" ? "ready" : ""}>
+                      {STATUS_LABEL[model.status]}
                     </em>
                     <small>GLB · USDZ</small>
                   </button>
                   <div className="model-card-copy">
                     <span>
-                      <b>{card[0]}</b>
-                      <small>{card[1]}</small>
+                      <b>{model.name}</b>
+                      <small>
+                        {relativeDate(model.createdAt)} ·{" "}
+                        {model.quality === "fast" ? "ХУРДАН" : "ӨНДӨР"}
+                      </small>
                     </span>
                     <button
-                      aria-label="Нэмэлт цэс"
-                      onClick={() => addToast("Загварын цэс нээгдлээ")}
+                      aria-label="Устгах"
+                      onClick={() => {
+                        removeModel(model.id);
+                        addToast("Жагсаалтаас хаслаа");
+                      }}
                     >
                       <MoreHorizontal />
                     </button>
                   </div>
                 </article>
               ))}
+            </div>
+          )}
+        </main>
+      </div>
+    );
+  };
+
+  const renderDetail = () => {
+    const current = models.find((model) => model.id === taskId);
+
+    return (
+      <div className="detail-screen page-enter">
+        <header>
+          <button onClick={() => go("models")}>
+            <ArrowLeft size={16} /> Миний загварууд
+          </button>
+          <span>{taskId ? `ID ${taskId.slice(0, 8)}` : "ЗАГВАР СОНГООГҮЙ"}</span>
+        </header>
+        <main>
+          <div className="detail-visual">
+            <CornerFrame />
+            {modelReady && urls ? (
+              <ModelViewer
+                ref={viewerRef}
+                src={urls.glb}
+                iosSrc={urls.usdz}
+                poster={urls.poster}
+                alt="3D загвар"
+                ar
+                autoRotate
+                className="vase-canvas"
+              />
+            ) : (
+              <VaseScene className="vase-canvas" color="#e8e2d6" />
+            )}
+            <span>
+              {modelReady
+                ? "INTERACTIVE 3D · DRAG TO ROTATE"
+                : task
+                  ? `${Math.round(task.progress)}% · БЭЛТГЭГДЭЖ БАЙНА`
+                  : "ЗАГВАР АЧААЛЖ БАЙНА"}
+            </span>
+          </div>
+          <div className="detail-copy">
+            <SectionLabel>
+              {modelReady ? "БЭЛЭН · 3D ЗАГВАР" : "БОЛОВСРУУЛЖ БАЙНА"}
+            </SectionLabel>
+            <h1>{current?.name ?? "3D загвар"}</h1>
+            <p>Нэг зургаас Meshy AI-аар үүсгэсэн, AR-д бэлэн 3D загвар.</p>
+            <div className="detail-actions">
+              <Button onClick={() => go("studio")} disabled={!modelReady}>
+                <WandSparkles size={16} /> Студид нээх
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => go("ar")}
+                disabled={!modelReady}
+              >
+                <Smartphone size={16} /> AR-аар харах
+              </Button>
+            </div>
+            <div className="detail-specs">
+              <span>
+                <b>ФОРМАТ</b>GLB · USDZ
+              </span>
+              <span>
+                <b>ЧАНАР</b>
+                {current?.quality === "fast" ? "Хурдан" : "Өндөр"}
+              </span>
+              <span>
+                <b>КРЕДИТ</b>
+                {task?.creditsUsed ?? "—"}
+              </span>
+              <span>
+                <b>ҮҮССЭН</b>
+                {current
+                  ? new Date(current.createdAt).toLocaleDateString("mn-MN")
+                  : "—"}
+              </span>
+            </div>
+            <div className="detail-links">
+              <button onClick={() => setModal("share")}>
+                <Share2 size={15} /> Хуваалцах
+              </button>
+              <button onClick={copyLink}>
+                <Link2 size={15} /> Холбоос хуулах
+              </button>
+              {urls && modelReady ? (
+                <a href={urls.glbDownload}>
+                  <Download size={15} /> GLB татах
+                </a>
+              ) : (
+                <button disabled>
+                  <Download size={15} /> Татах
+                </button>
+              )}
+            </div>
           </div>
         </main>
       </div>
     );
   };
 
-  const renderDetail = () => (
-    <div className="detail-screen page-enter">
-      <header>
-        <button onClick={() => go("models")}>
-          <ArrowLeft size={16} /> Миний загварууд
-        </button>
-        <span>ID 4821 · GLB / USDZ</span>
-      </header>
-      <main>
-        <div className="detail-visual">
-          <CornerFrame />
-          <VaseScene className="vase-canvas" color="#e8e2d6" />
-          <span>INTERACTIVE 3D · DRAG TO ROTATE</span>
-        </div>
-        <div className="detail-copy">
-          <SectionLabel>БЭЛЭН · 3D ЗАГВАР</SectionLabel>
-          <h1>Шаазан ваар</h1>
-          <p>Нэг зургаас үүсгэсэн, AR-д бэлэн өндөр чанартай 3D загвар.</p>
-          <div className="detail-actions">
-            <Button onClick={() => go("studio")}>
-              <WandSparkles size={16} /> Студид нээх
-            </Button>
-            <Button variant="secondary" onClick={() => go("ar")}>
-              <Smartphone size={16} /> AR-аар харах
-            </Button>
-          </div>
-          <div className="detail-specs">
-            <span>
-              <b>ФОРМАТ</b>GLB · USDZ
-            </span>
-            <span>
-              <b>ХЭМЖЭЭ</b>18.2 MB
-            </span>
-            <span>
-              <b>ПОЛИГОН</b>46,280
-            </span>
-            <span>
-              <b>ҮҮССЭН</b>2026.08.05
-            </span>
-          </div>
-          <div className="detail-links">
-            <button onClick={() => setModal("share")}>
-              <Share2 size={15} /> Хуваалцах
-            </button>
-            <button onClick={copyLink}>
-              <Link2 size={15} /> Холбоос хуулах
-            </button>
-            <button onClick={() => addToast("GLB файл бэлтгэгдэж байна")}>
-              <Download size={15} /> Татах
-            </button>
-          </div>
-        </div>
-      </main>
-    </div>
-  );
-
   const renderPricing = () => (
     <div className="pricing-screen page-enter">
-      <header>
-        <button onClick={() => go("landing")}>
-          <Brand />
-        </button>
-        <button onClick={() => go("auth")}>Нэвтрэх</button>
-      </header>
+      <SiteHeader
+        screen={screen}
+        go={go}
+        balance={balance}
+        onOpenMenu={() => setNavOpen(true)}
+      />
       <main>
         <SectionLabel>ЭНГИЙН · ИЛ ТОД</SectionLabel>
         <h1>
@@ -1507,9 +2203,54 @@ export default function MorphApp() {
     auth: renderAuth,
   };
 
+  // Доод таб зөвхөн апп доторх дэлгэцүүд дээр (landing/pricing/auth дээр биш)
+  const showTabs = [
+    "upload",
+    "generate",
+    "models",
+    "studio",
+    "detail",
+    "ar",
+  ].includes(screen);
+
   return (
-    <div className="morph-app">
+    <div className={`morph-app ${showTabs ? "with-tabs" : ""}`}>
       {screenContent[screen]()}
+      {showTabs && (
+        <MobileTabs
+          screen={screen}
+          go={go}
+          hasModel={Boolean(modelReady)}
+          onOpenMenu={() => setNavOpen(true)}
+        />
+      )}
+
+      {/*
+        Цэс нь БҮХ дэлгэц дээр ажиллана. Өмнө нь зөвхөн нүүр хуудсан дотор
+        байсан тул утсаар аппын дэлгэц рүү ороод нүүр, үнийн багц, нэвтрэх
+        рүү буцах арга байхгүй болдог байсан.
+      */}
+      {navOpen && (
+        <div className="mobile-menu page-enter">
+          <button
+            className="mobile-close"
+            aria-label="Цэс хаах"
+            onClick={() => setNavOpen(false)}
+          >
+            <X />
+          </button>
+          {[
+            { key: "landing", label: "Нүүр" },
+            ...NAV_ITEMS.map(({ key, label }) => ({ key, label })),
+            { key: "auth", label: "Нэвтрэх" },
+          ].map((item) => (
+            <button key={item.key} onClick={() => go(item.key as Screen)}>
+              {item.label}
+              <ArrowRight />
+            </button>
+          ))}
+        </div>
+      )}
       <div className="toast-stack" aria-live="polite">
         {toasts.map((toast) => (
           <div key={toast.id}>
@@ -1523,7 +2264,7 @@ export default function MorphApp() {
           className="modal-backdrop"
           role="dialog"
           aria-modal="true"
-          aria-label={modal === "share" ? "Хуваалцах" : "Утас руу илгээх"}
+          aria-label={modal === "share" ? "Хуваалцах" : "Бидэнтэй холбогдох"}
         >
           <div className="modal-card page-enter">
             <button
@@ -1539,45 +2280,57 @@ export default function MorphApp() {
                   <Share2 />
                 </span>
                 <h2>Загвар хуваалцах</h2>
-                <p>Энэ холбоостой хүн 3D загварыг үзэх боломжтой.</p>
+                <p>
+                  Энэ холбоосыг нээсэн хүн загварыг 3D болон AR-аар харах
+                  боломжтой.
+                </p>
                 <div className="share-link">
-                  <span>morph.ar/m/4821</span>
-                  <button onClick={copyLink}>
+                  <span>{arLink || "Загвар үүсгэсний дараа холбоос гарна"}</span>
+                  <button onClick={copyLink} aria-label="Холбоос хуулах">
                     <Copy size={15} />
                   </button>
                 </div>
-                <label className="toggle-row">
-                  Файл татах боломжтой <input type="checkbox" defaultChecked />
-                  <i />
-                </label>
-                <Button
-                  onClick={() => {
-                    setModal(null);
-                    addToast("Хуваалцах тохиргоо хадгалагдлаа");
-                  }}
-                >
-                  Хадгалах
-                </Button>
+                <div className="modal-actions">
+                  <Button
+                    onClick={() => {
+                      setModal(null);
+                      void shareLink();
+                    }}
+                    disabled={!arLink}
+                  >
+                    <Share2 size={16} /> Хуваалцах
+                  </Button>
+                  {arLink && (
+                    <a
+                      className="button button-secondary"
+                      href={arLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => setModal(null)}
+                    >
+                      Нээж үзэх <ArrowRight size={15} />
+                    </a>
+                  )}
+                </div>
               </>
             ) : (
               <>
                 <span className="modal-icon">
                   <Smartphone />
                 </span>
-                <h2>Утас руу илгээх</h2>
-                <p>AR холбоос хүлээн авах утасны дугаараа оруулна уу.</p>
-                <label className="phone-field">
-                  +976
-                  <input inputMode="tel" placeholder="9911 2233" />
-                </label>
-                <Button
-                  onClick={() => {
-                    setModal(null);
-                    addToast("AR холбоос илгээлээ");
-                  }}
-                >
-                  Илгээх <ArrowRight size={16} />
-                </Button>
+                <h2>Бидэнтэй холбогдох</h2>
+                <p>
+                  Багийн багц, API хандалт, тусгай шийдлийн талаар ярилцах уу?
+                </p>
+                <div className="modal-actions">
+                  <a
+                    className="button button-primary"
+                    href="mailto:hello@morph.ar?subject=MORPH%20AR%20-%20Багийн%20багц"
+                    onClick={() => setModal(null)}
+                  >
+                    И-мэйл бичих <ArrowRight size={16} />
+                  </a>
+                </div>
               </>
             )}
           </div>

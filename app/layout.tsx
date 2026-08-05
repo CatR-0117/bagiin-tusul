@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geologica, Golos_Text, JetBrains_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
@@ -17,6 +17,20 @@ const mono = JetBrains_Mono({
   variable: "--font-mono",
   subsets: ["latin", "cyrillic"],
 });
+
+/**
+ * Утасны тохиргоо.
+ *
+ * `viewportFit: "cover"` байхгүй бол iPhone-ий хонхорхой/доод зурааснаас
+ * зайлсхийхэд ашигладаг `env(safe-area-inset-*)` утгууд үргэлж 0 байдаг.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0b0c10",
+  colorScheme: "dark",
+};
 
 const baseMetadata: Metadata = {
   title: "MORPH AR — Нэг зургаас шинэ хэмжээс рүү",

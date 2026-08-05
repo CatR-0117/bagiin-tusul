@@ -15,6 +15,15 @@ type VaseSceneProps = {
   distance?: number;
   cameraY?: number;
   scale?: number;
+  /**
+   * Зөвхөн нэг кадр зураад зогсоно (thumbnail-д).
+   * Хөдөлгөөнгүй жижиг зургийн төлөө rAF-ыг тасралтгүй эргүүлэх нь
+   * утасны батерейг дэмий зарцуулна.
+   */
+  still?: boolean;
+  /** Хулгана/хуруугаар эргүүлэх, ойртуулах боломж */
+  interactive?: boolean;
+  label?: string;
 };
 
 const materialPresets = {
@@ -61,6 +70,9 @@ export default function VaseScene({
   distance = 4.3,
   cameraY = 0.92,
   scale = 1,
+  still = false,
+  interactive = true,
+  label = "Эргүүлж харах боломжтой 3D ваар",
 }: VaseSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const settingsRef = useRef({
@@ -226,12 +238,18 @@ export default function VaseScene({
       );
     };
 
-    canvas.addEventListener("pointerdown", onPointerDown);
-    canvas.addEventListener("pointermove", onPointerMove);
-    canvas.addEventListener("pointerup", onPointerUp);
-    canvas.addEventListener("pointercancel", onPointerUp);
-    canvas.addEventListener("wheel", onWheel, { passive: false });
-    canvas.style.touchAction = "none";
+    if (interactive) {
+      canvas.addEventListener("pointerdown", onPointerDown);
+      canvas.addEventListener("pointermove", onPointerMove);
+      canvas.addEventListener("pointerup", onPointerUp);
+      canvas.addEventListener("pointercancel", onPointerUp);
+      canvas.addEventListener("wheel", onWheel, { passive: false });
+      canvas.style.touchAction = "none";
+    } else {
+      // Хөдөлгөөнгүй зураг — хуудсыг гүйлгэхэд саад болохгүй
+      canvas.style.touchAction = "auto";
+      canvas.style.cursor = "default";
+    }
 
     const resize = () => {
       const width = Math.max(1, canvas.clientWidth);
@@ -239,10 +257,11 @@ export default function VaseScene({
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      // Зогссон горимд хэмжээ өөрчлөгдөхөд дахин нэг кадр зурна
+      if (still) render();
     };
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(canvas);
-    resize();
 
     let frame = 0;
     const clock = new THREE.Clock();
@@ -274,19 +293,29 @@ export default function VaseScene({
       solid.castShadow = solidMaterial.opacity > 0.6;
       grid.visible = settings.showGrid;
 
-      if (settings.autoRotate && !pointer.dragging) {
-        pointer.targetYaw += delta * 0.156;
+      if (still) {
+        // Зөөлрүүлэлтгүй — эцсийн байрлалыг шууд авна
+        pointer.yaw = pointer.targetYaw;
+        pointer.pitch = pointer.targetPitch;
+        pointer.distance = pointer.targetDistance;
+      } else {
+        if (settings.autoRotate && !pointer.dragging) {
+          pointer.targetYaw += delta * 0.156;
+        }
+        pointer.yaw += (pointer.targetYaw - pointer.yaw) * 0.09;
+        pointer.pitch += (pointer.targetPitch - pointer.pitch) * 0.09;
+        pointer.distance += (pointer.targetDistance - pointer.distance) * 0.08;
       }
-      pointer.yaw += (pointer.targetYaw - pointer.yaw) * 0.09;
-      pointer.pitch += (pointer.targetPitch - pointer.pitch) * 0.09;
-      pointer.distance += (pointer.targetDistance - pointer.distance) * 0.08;
+
       group.rotation.y = pointer.yaw;
       camera.position.set(0, cameraY + pointer.pitch * 2.2, pointer.distance);
       camera.lookAt(0, cameraY * 0.14, 0);
 
       renderer.render(scene, camera);
-      frame = requestAnimationFrame(render);
+      if (!still) frame = requestAnimationFrame(render);
     };
+
+    resize();
     render();
 
     return () => {
@@ -307,13 +336,7 @@ export default function VaseScene({
       (grid.material as THREE.Material).dispose();
       renderer.dispose();
     };
-  }, [cameraY, compact, distance, scale]);
+  }, [cameraY, compact, distance, interactive, scale, still]);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className={className}
-      aria-label="Эргүүлж харах боломжтой 3D ваар"
-    />
-  );
+  return <canvas ref={canvasRef} className={className} aria-label={label} />;
 }
