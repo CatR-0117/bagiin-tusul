@@ -12,6 +12,9 @@ type VaseSceneProps = {
   className?: string;
   compact?: boolean;
   showGrid?: boolean;
+  distance?: number;
+  cameraY?: number;
+  scale?: number;
 };
 
 const materialPresets = {
@@ -23,24 +26,27 @@ const materialPresets = {
 
 function buildVaseGeometry(detail: number) {
   const profile: Array<[number, number]> = [
-    [0.03, 0],
-    [0.31, 0.01],
-    [0.35, 0.07],
-    [0.3, 0.15],
-    [0.47, 0.34],
-    [0.61, 0.68],
-    [0.7, 1.08],
-    [0.66, 1.45],
-    [0.49, 1.76],
-    [0.35, 1.92],
-    [0.34, 2.05],
-    [0.5, 2.1],
-    [0.51, 2.18],
-    [0.31, 2.21],
+    [0.02, 0],
+    [0.29, 0.012],
+    [0.325, 0.055],
+    [0.285, 0.125],
+    [0.45, 0.3],
+    [0.6, 0.6],
+    [0.545, 0.95],
+    [0.37, 1.27],
+    [0.252, 1.5],
+    [0.268, 1.655],
+    [0.35, 1.76],
   ];
 
   const points = profile.map(([x, y]) => new THREE.Vector2(x, y));
-  return new THREE.LatheGeometry(points, detail, 0, Math.PI * 2);
+  const curve = new THREE.SplineCurve(points);
+  return new THREE.LatheGeometry(
+    curve.getPoints(Math.round(10 + (detail / 100) * 44)),
+    Math.round(12 + (detail / 100) * 84),
+    0,
+    Math.PI * 2,
+  );
 }
 
 export default function VaseScene({
@@ -52,6 +58,9 @@ export default function VaseScene({
   className,
   compact = false,
   showGrid = false,
+  distance = 4.3,
+  cameraY = 0.92,
+  scale = 1,
 }: VaseSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const settingsRef = useRef({
@@ -86,19 +95,22 @@ export default function VaseScene({
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(compact ? 38 : 32, 1, 0.1, 100);
-    camera.position.set(0, compact ? 1.2 : 1.05, compact ? 4.6 : 4.15);
+    const camera = new THREE.PerspectiveCamera(compact ? 36 : 33, 1, 0.1, 100);
+    camera.position.set(0, cameraY, distance);
 
     const group = new THREE.Group();
-    group.position.y = -1.08;
+    group.position.y = -0.86;
     group.rotation.y = -0.45;
+    group.scale.setScalar(scale);
     scene.add(group);
 
-    const geometry = buildVaseGeometry(compact ? 64 : 96);
+    const geometry = buildVaseGeometry(compact ? 50 : 60);
     geometry.computeVertexNormals();
 
     const initialSettings = settingsRef.current;
@@ -106,6 +118,8 @@ export default function VaseScene({
       color: initialSettings.color,
       roughness: materialPresets[initialSettings.material].roughness,
       metalness: materialPresets[initialSettings.material].metalness,
+      side: THREE.DoubleSide,
+      transparent: true,
     });
     const solid = new THREE.Mesh(geometry, solidMaterial);
     solid.castShadow = true;
@@ -130,34 +144,43 @@ export default function VaseScene({
     const points = new THREE.Points(geometry, pointMaterial);
     group.add(points);
 
-    scene.add(new THREE.HemisphereLight(0xb8bdcf, 0x13141b, 1.25));
+    const ambient = new THREE.AmbientLight(0x9aa0c0, 0.5);
+    scene.add(ambient);
 
-    const keyLight = new THREE.DirectionalLight(0xfff5e6, 3.1);
-    keyLight.position.set(3.6, 4.2, 4.2);
+    const keyLight = new THREE.DirectionalLight(0xfff6e8, 2.4);
+    const keyAngle = 0.4 * Math.PI * 1.6 - 0.25;
+    keyLight.position.set(Math.cos(keyAngle) * 4.2, 4.4, Math.sin(keyAngle) * 4.2);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.set(1024, 1024);
+    keyLight.shadow.camera.near = 0.5;
+    keyLight.shadow.camera.far = 14;
+    keyLight.shadow.camera.left = -3;
+    keyLight.shadow.camera.right = 3;
+    keyLight.shadow.camera.top = 3;
+    keyLight.shadow.camera.bottom = -3;
+    keyLight.shadow.bias = -0.0012;
     scene.add(keyLight);
 
-    const rim = new THREE.DirectionalLight(0x8068ff, 2.8);
-    rim.position.set(-4, 1.6, -2.4);
+    const rim = new THREE.DirectionalLight(0x8068ff, 2.2);
+    rim.position.set(-3.4, 1.4, -2.6);
     scene.add(rim);
 
-    const fill = new THREE.DirectionalLight(0xc9ff63, 0.5);
-    fill.position.set(2.4, -1, 1.8);
+    const fill = new THREE.DirectionalLight(0xc9ff63, 0.35);
+    fill.position.set(2.2, -1.2, 2.4);
     scene.add(fill);
 
     const floorMaterial = new THREE.ShadowMaterial({
       color: 0x000000,
-      opacity: 0.34,
+      opacity: 0.44,
     });
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), floorMaterial);
     floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -1.09;
+    floor.position.y = -0.87;
     floor.receiveShadow = true;
     scene.add(floor);
 
     const grid = new THREE.GridHelper(12, 24, 0x333645, 0x252733);
-    grid.position.y = -1.08;
+    grid.position.y = -0.868;
     (grid.material as THREE.Material).transparent = true;
     (grid.material as THREE.Material).opacity = 0.28;
     scene.add(grid);
@@ -167,7 +190,11 @@ export default function VaseScene({
       x: 0,
       y: 0,
       targetYaw: -0.45,
-      targetPitch: 0,
+      yaw: -0.45,
+      targetPitch: 0.06,
+      pitch: 0.06,
+      distance,
+      targetDistance: distance,
     };
 
     const onPointerDown = (event: PointerEvent) => {
@@ -178,11 +205,11 @@ export default function VaseScene({
     };
     const onPointerMove = (event: PointerEvent) => {
       if (!pointer.dragging) return;
-      pointer.targetYaw += (event.clientX - pointer.x) * 0.008;
+      pointer.targetYaw += (event.clientX - pointer.x) * 0.006;
       pointer.targetPitch = THREE.MathUtils.clamp(
         pointer.targetPitch + (event.clientY - pointer.y) * 0.004,
-        -0.35,
-        0.35,
+        -0.5,
+        0.72,
       );
       pointer.x = event.clientX;
       pointer.y = event.clientY;
@@ -190,11 +217,21 @@ export default function VaseScene({
     const onPointerUp = () => {
       pointer.dragging = false;
     };
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      pointer.targetDistance = THREE.MathUtils.clamp(
+        pointer.targetDistance + event.deltaY * 0.0022,
+        2.3,
+        8,
+      );
+    };
 
     canvas.addEventListener("pointerdown", onPointerDown);
     canvas.addEventListener("pointermove", onPointerMove);
     canvas.addEventListener("pointerup", onPointerUp);
     canvas.addEventListener("pointercancel", onPointerUp);
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    canvas.style.touchAction = "none";
 
     const resize = () => {
       const width = Math.max(1, canvas.clientWidth);
@@ -223,17 +260,29 @@ export default function VaseScene({
       solidMaterial.needsUpdate = true;
 
       const p = THREE.MathUtils.clamp(settings.progress, 0, 1);
-      pointMaterial.opacity = THREE.MathUtils.clamp(1 - p * 3, 0, 0.92);
-      wireMaterial.opacity = THREE.MathUtils.clamp(1.25 - Math.abs(p - 0.42) * 3, 0, 0.68);
-      solidMaterial.opacity = THREE.MathUtils.smoothstep(p, 0.35, 0.82);
-      solidMaterial.transparent = solidMaterial.opacity < 0.999;
+      pointMaterial.opacity = THREE.MathUtils.clamp(1 - p / 0.34, 0, 1) * 0.95;
+      wireMaterial.opacity =
+        p < 0.32
+          ? THREE.MathUtils.clamp(p / 0.32, 0, 1) * 0.92
+          : THREE.MathUtils.clamp(
+              0.92 - THREE.MathUtils.clamp((p - 0.58) / 0.42, 0, 1) * 0.8,
+              0,
+              1,
+            );
+      solidMaterial.opacity = THREE.MathUtils.clamp((p - 0.34) / 0.46, 0, 1);
+      solid.visible = solidMaterial.opacity > 0.01;
+      solid.castShadow = solidMaterial.opacity > 0.6;
       grid.visible = settings.showGrid;
 
       if (settings.autoRotate && !pointer.dragging) {
-        pointer.targetYaw += delta * 0.24;
+        pointer.targetYaw += delta * 0.156;
       }
-      group.rotation.y += (pointer.targetYaw - group.rotation.y) * 0.075;
-      group.rotation.x += (pointer.targetPitch - group.rotation.x) * 0.075;
+      pointer.yaw += (pointer.targetYaw - pointer.yaw) * 0.09;
+      pointer.pitch += (pointer.targetPitch - pointer.pitch) * 0.09;
+      pointer.distance += (pointer.targetDistance - pointer.distance) * 0.08;
+      group.rotation.y = pointer.yaw;
+      camera.position.set(0, cameraY + pointer.pitch * 2.2, pointer.distance);
+      camera.lookAt(0, cameraY * 0.14, 0);
 
       renderer.render(scene, camera);
       frame = requestAnimationFrame(render);
@@ -247,6 +296,7 @@ export default function VaseScene({
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);
       canvas.removeEventListener("pointercancel", onPointerUp);
+      canvas.removeEventListener("wheel", onWheel);
       geometry.dispose();
       solidMaterial.dispose();
       wireMaterial.dispose();
@@ -257,7 +307,7 @@ export default function VaseScene({
       (grid.material as THREE.Material).dispose();
       renderer.dispose();
     };
-  }, [compact]);
+  }, [cameraY, compact, distance, scale]);
 
   return (
     <canvas

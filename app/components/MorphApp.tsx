@@ -213,6 +213,8 @@ function MiniVase({ color = "#e8e2d6" }: { color?: string }) {
 
 export default function MorphApp() {
   const [screen, setScreen] = useState<Screen>("landing");
+  const [heroProgress, setHeroProgress] = useState(0);
+  const [heroStage, setHeroStage] = useState(0);
   const [navOpen, setNavOpen] = useState(false);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [uploadName, setUploadName] = useState("vaar-sample.jpg");
@@ -277,6 +279,19 @@ export default function MorphApp() {
       window.clearTimeout(finish);
     };
   }, [addToast, screen]);
+
+  useEffect(() => {
+    if (screen !== "landing") return;
+    let progress = 0;
+    const interval = window.setInterval(() => {
+      progress += 0.018;
+      if (progress > 1.32) progress = 0;
+      const visibleProgress = Math.min(1, progress);
+      setHeroProgress(visibleProgress);
+      setHeroStage(visibleProgress < 0.3 ? 0 : visibleProgress < 0.72 ? 1 : 2);
+    }, 60);
+    return () => window.clearInterval(interval);
+  }, [screen]);
 
   const loadFile = (file?: File) => {
     if (!file) return;
@@ -362,15 +377,15 @@ export default function MorphApp() {
           </div>
           <div className="hero-visual">
             <div className="vertical-steps">
-              <span><i />01 ЗУРАГ</span>
-              <span><i />02 MESH</span>
-              <span className="active"><i />03 3D</span>
+              <span className={heroStage === 0 ? "active" : ""}><i />01 ЗУРАГ</span>
+              <span className={heroStage === 1 ? "active" : ""}><i />02 MESH</span>
+              <span className={heroStage === 2 ? "active" : ""}><i />03 3D</span>
             </div>
             <div className="hero-stage">
               <CornerFrame />
               <span className="scan-line" />
-              <VaseScene className="vase-canvas" color="#e8e2d6" />
-              <span className="stage-label">3D ЗАГВАР БЭЛЭН</span>
+              <VaseScene className="vase-canvas hero-vase-canvas" color="#e8e2d6" progress={heroProgress} distance={4.5} cameraY={0.95} />
+              <span className={`stage-label stage-label-${heroStage}`}><i />{["ЗУРАГ ШИНЖИЛЖ БАЙНА", "MESH БАЙГУУЛЖ БАЙНА", "3D ЗАГВАР БЭЛЭН"][heroStage]}</span>
               <span className="stage-coordinates">X 0.42<br />Y 1.76<br />Z 0.42</span>
               <span className="height-scale"><i />176 MM</span>
               <div className="source-card">
