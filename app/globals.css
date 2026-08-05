@@ -630,7 +630,8 @@ input:focus-visible {
 .source-card {
   position: absolute;
   z-index: 6;
-  bottom: 6%;
+  top: 14%;
+  bottom: auto;
   left: -8%;
   width: min(190px, 42%);
   padding: 9px;
@@ -644,8 +645,10 @@ input:focus-visible {
   position: absolute;
   top: 50%;
   left: 100%;
-  width: 24%;
+  width: 38%;
   height: 1px;
+  transform: rotate(12deg);
+  transform-origin: left center;
   background: linear-gradient(90deg, rgba(201, 255, 99, 0.55), rgba(201, 255, 99, 0.12));
   content: "";
 }
@@ -3246,7 +3249,8 @@ input:focus-visible {
   }
 
   .source-card {
-    bottom: 4%;
+    top: 10%;
+    bottom: auto;
     left: 4%;
     width: 36%;
   }
