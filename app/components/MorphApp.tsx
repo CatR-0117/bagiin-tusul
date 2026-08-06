@@ -6,13 +6,10 @@ import {
   Box,
   Check,
   ChevronDown,
-  CircleHelp,
   Copy,
   Download,
-  Expand,
   Grid2X2,
   Layers3,
-  Link2,
   Menu,
   MoreHorizontal,
   Move3D,
@@ -262,6 +259,8 @@ function SiteHeader({
   balance,
   onOpenMenu,
   variant = "app",
+  steps,
+  hasTabs = false,
 }: {
   screen: Screen;
   go: (screen: Screen) => void;
@@ -270,16 +269,32 @@ function SiteHeader({
   onOpenMenu: () => void;
   /** "landing" дээр CTA товч, "app" дээр кредит харагдана */
   variant?: "landing" | "app";
+  /**
+   * Ажлын урсгалын алхам. Өгвөл 01–02–03 индикатор ЭНЭ толгойн дотор
+   * гарна — өмнөх шиг тусдаа хоёр дахь бар үүсэхгүй.
+   */
+  steps?: 1 | 2 | 3;
+  /** Утсан дээр доод таб байгаа эсэх — байвал толгойн ☰ хэрэггүй. */
+  hasTabs?: boolean;
 }) {
   const activeKey = navKeyFor(screen);
   const runs = balance === null ? null : Math.floor(balance / 30);
 
   return (
     <header className="site-header">
-      <button className="header-brand" onClick={() => go("landing")}>
-        <Brand />
-      </button>
+      <div className="header-left">
+        <button className="header-brand" onClick={() => go("landing")}>
+          <Brand />
+        </button>
+        {/* Хуучин .progress-header бар энд шингэсэн: 72 + 66px → 72px */}
+        {steps && <ProgressSteps step={steps} />}
+      </div>
 
+      {/*
+        Цэс нь БҮХ дэлгэц дээр яг ижил гурван зүйлтэй. Өмнө нь нүүр дээр
+        "Үүсгэх" байхгүй байсан тул апп руу ороход бусад зүйл нь хажуу тийш
+        үсэрдэг байв.
+      */}
       <nav className="desktop-nav" aria-label="Үндсэн цэс">
         {NAV_ITEMS.map((item) => {
           const active = activeKey === item.key;
@@ -297,34 +312,47 @@ function SiteHeader({
 
         <span className="nav-divider" />
 
-        {variant === "app" ? (
-          <button
-            className="credit-chip"
-            onClick={() => go("pricing")}
-            title={
-              runs === null
-                ? "Кредит шалгаж байна"
-                : `≈ ${runs} загвар үүсгэх боломжтой`
-            }
-          >
-            <Sparkles size={13} />
-            {balance === null ? "—" : balance.toLocaleString()}
-            <small>КРЕДИТ</small>
-          </button>
-        ) : null}
-
-        <button onClick={() => go("auth")}>Нэвтрэх</button>
-        <Button onClick={() => go("upload")}>
-          {variant === "landing" ? "Одоо эхлэх" : "Шинэ загвар"}
-        </Button>
+        {/* Тогтмол өргөнтэй слот — CTA ↔ кредит солигдоход толгой хөдлөхгүй */}
+        <span className="header-end">
+          {variant === "app" ? (
+            <button
+              className="credit-chip"
+              onClick={() => go("pricing")}
+              title={
+                runs === null
+                  ? "Кредит шалгаж байна"
+                  : `≈ ${runs} загвар үүсгэх боломжтой`
+              }
+            >
+              <Sparkles size={13} />
+              {balance === null ? "—" : balance.toLocaleString()}
+              <small>КРЕДИТ</small>
+            </button>
+          ) : (
+            <Button onClick={() => go("upload")}>Одоо эхлэх</Button>
+          )}
+          <button onClick={() => go("auth")}>Нэвтрэх</button>
+        </span>
       </nav>
 
-      <div className="mobile-nav-actions">
-        <Button onClick={() => go("upload")}>Эхлэх</Button>
-        <button className="icon-button" aria-label="Цэс нээх" onClick={onOpenMenu}>
-          <Menu size={19} />
-        </button>
-      </div>
+      {/*
+        Доод таб байгаа дэлгэц дээр энэ блок бүхэлдээ хэрэггүй:
+        "Үүсгэх" болон "Цэс" хоёул доод табанд, эрхий хурууны зайд байна.
+      */}
+      {!hasTabs && (
+        <div className="mobile-nav-actions">
+          {variant === "landing" && (
+            <Button onClick={() => go("upload")}>Эхлэх</Button>
+          )}
+          <button
+            className="icon-button"
+            aria-label="Цэс нээх"
+            onClick={onOpenMenu}
+          >
+            <Menu size={19} />
+          </button>
+        </div>
+      )}
     </header>
   );
 }
@@ -385,26 +413,33 @@ function MobileTabs({
   );
 }
 
-function ProgressHeader({ step = 1 }: { step?: 1 | 2 | 3 }) {
+/**
+ * Ажлын урсгалын алхмууд — толгойн дотор багтана.
+ *
+ * Өмнө нь `.progress-header` гэсэн бүтэн өргөнтэй тусдаа бар байсан бөгөөд
+ * site-header-ийн шууд доор наалддаг тул утсан дээр контент эхлэхээс өмнө
+ * 138px чимэглэл эзэлдэг байв. Утсан дээр зөвхөн ИДЭВХТЭЙ алхам харагдана.
+ */
+function ProgressSteps({ step = 1 }: { step?: 1 | 2 | 3 }) {
   const items = ["ЗУРАГ ОРУУЛАХ", "ҮҮСГЭХ", "AR"];
   return (
-    <div className="progress-header">
-      <div className="progress-steps">
-        {items.map((item, index) => (
-          <span
+    <ol className="progress-steps" aria-label="Ажлын урсгал">
+      {items.map((item, index) => {
+        const state =
+          step === index + 1 ? "active" : step > index + 1 ? "done" : "";
+        return (
+          <li
             key={item}
-            className={
-              step === index + 1 ? "active" : step > index + 1 ? "done" : ""
-            }
+            className={state}
+            aria-current={state === "active" ? "step" : undefined}
           >
             <b>0{index + 1}</b>
             {item}
             {index < items.length - 1 && <i />}
-          </span>
-        ))}
-      </div>
-      <CircleHelp size={17} aria-label="Тусламж" />
-    </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -942,12 +977,11 @@ export default function MorphApp() {
               Зургаа оруулж интерактив 3D загвар үүсгээд, бодит орчиндоо AR-аар
               байрлуулаарай.
             </p>
+            {/* Ганц үндсэн үйлдэл. "Миний загварууд" толгойн цэсэнд байгаа
+                тул энд давхардуулахгүй. */}
             <div className="hero-actions">
               <Button onClick={() => go("upload")}>
                 3D загвар үүсгэх <ArrowRight size={17} />
-              </Button>
-              <Button variant="secondary" onClick={() => go("models")}>
-                Миний загварууд
               </Button>
             </div>
             <div className="hero-meta">
@@ -1023,22 +1057,22 @@ export default function MorphApp() {
           </div>
         </section>
 
-        <section className="process-section">
+        {/*
+          Энэ хэсэг нь ажлын урсгалыг ТАЙЛБАРЛАНА, навигац биш.
+          Өмнө нь гурван товч байсан бөгөөд 02, 03 хоёул "models" руу очдог
+          байсан — хэрэглэгчид өөр өөр газар руу орох мэт харагдаж байсан ч
+          үнэндээ ижил дэлгэц нээгддэг байв. Одоо энгийн жагсаалт.
+        */}
+        <ol className="process-section">
           {["Зургаа оруулах", "3D загвар үүсгэх", "AR-аар харах"].map(
             (item, index) => (
-              <button
-                key={item}
-                onClick={() =>
-                  go(index === 0 ? "upload" : index === 1 ? "models" : "models")
-                }
-              >
+              <li key={item}>
                 <span>0{index + 1}</span>
                 <b>{item}</b>
-                <ArrowRight size={20} />
-              </button>
+              </li>
             ),
           )}
-        </section>
+        </ol>
 
         <section className="use-cases-section">
           <div>
@@ -1097,9 +1131,10 @@ export default function MorphApp() {
           go={go}
           balance={balance}
           onOpenMenu={() => setNavOpen(true)}
+          steps={1}
+          hasTabs
         />
         <main className="dashboard-main">
-          <ProgressHeader step={1} />
           <div className="upload-content">
             {sources.length === 0 ? (
               <>
@@ -1450,21 +1485,18 @@ export default function MorphApp() {
 
   const renderStudio = () => (
     <div className="studio-screen page-enter">
+      {/*
+        Хажуугийн rail-д өмнө нь Orbit / Move3D / Expand / Grid2X2 гэсэн 4
+        товч байсан ч аль нь ч onClick-гүй байсан бөгөөд эхний хоёр нь
+        харагдацын доод буланд байдаг viewport-tools-той яг давхардаж байв.
+        Одоо rail нь зөвхөн навигацад үйлчилнэ, хэрэгслүүд viewport дээрээ.
+      */}
       <aside className="studio-rail">
         <button aria-label="Нүүр" onClick={() => go("landing")}>
           <span className="solo-mark">
             <i />
           </span>
         </button>
-        {[Orbit, Move3D, Expand, Grid2X2].map((Icon, index) => (
-          <button
-            key={index}
-            className={index === 0 ? "active" : ""}
-            aria-label="Студийн хэрэгсэл"
-          >
-            <Icon size={17} />
-          </button>
-        ))}
         <span />
         <button aria-label="Хэрэглэгч" onClick={() => go("auth")}>
           <i className="avatar" />
@@ -1812,12 +1844,11 @@ export default function MorphApp() {
                 </span>
               </div>
             </div>
+            {/* shareLink нь дэмждэггүй хөтөч дээр автоматаар copyLink рүү
+                шилждэг тул тусад нь "хуулах" товч шаардлагагүй. */}
             <div className="ar-actions">
-              <Button variant="secondary" onClick={copyLink}>
-                <Copy size={15} /> AR холбоос хуулах
-              </Button>
               <Button variant="secondary" onClick={() => void shareLink()}>
-                <Share2 size={15} /> Хуваалцах
+                <Share2 size={15} /> Холбоос хуваалцах
               </Button>
             </div>
             {arLink && (
@@ -1846,6 +1877,7 @@ export default function MorphApp() {
           go={go}
           balance={balance}
           onOpenMenu={() => setNavOpen(true)}
+          hasTabs
         />
         <main className="models-main">
           <header>
@@ -1857,32 +1889,51 @@ export default function MorphApp() {
                 {models.filter((m) => m.status === "SUCCEEDED").length} БЭЛЭН
               </small>
             </div>
-            <Button onClick={() => go("upload")}>
-              <Plus size={16} /> Шинэ загвар үүсгэх
-            </Button>
+            {/* Сан хоосон үед доорх хоосон төлөвт өөрийн CTA байгаа тул
+                энд давхардуулж харуулахгүй. */}
+            {models.length > 0 && (
+              <Button onClick={() => go("upload")}>
+                <Plus size={16} /> Шинэ загвар үүсгэх
+              </Button>
+            )}
           </header>
-          <div className="filter-row">
-            {["Бүгд", "Бэлэн", "Боловсруулж буй", "Амжилтгүй"].map((filter) => (
-              <button
-                key={filter}
-                className={galleryFilter === filter ? "active" : ""}
-                onClick={() => setGalleryFilter(filter)}
-              >
-                {filter}
-              </button>
-            ))}
-          </div>
+          {models.length > 0 && (
+            <div className="filter-row">
+              {["Бүгд", "Бэлэн", "Боловсруулж буй", "Амжилтгүй"].map(
+                (filter) => (
+                  <button
+                    key={filter}
+                    className={galleryFilter === filter ? "active" : ""}
+                    onClick={() => setGalleryFilter(filter)}
+                  >
+                    {filter}
+                  </button>
+                ),
+              )}
+            </div>
+          )}
           {visible.length === 0 ? (
             <div className="models-empty">
               <Box size={26} />
-              <b>Одоохондоо загвар алга</b>
-              <p>
-                Зураг оруулаад эхний 3D загвараа үүсгээрэй. Загварууд энэ
-                хөтөч дээр хадгалагдана.
-              </p>
-              <Button onClick={() => go("upload")}>
-                <Plus size={16} /> Загвар үүсгэх
-              </Button>
+              {models.length === 0 ? (
+                <>
+                  <b>Одоохондоо загвар алга</b>
+                  <p>
+                    Зураг оруулаад эхний 3D загвараа үүсгээрэй. Загварууд энэ
+                    хөтөч дээр хадгалагдана.
+                  </p>
+                  <Button onClick={() => go("upload")}>
+                    <Plus size={16} /> Загвар үүсгэх
+                  </Button>
+                </>
+              ) : (
+                /* Шүүлтүүрт тохирох загвар олдсонгүй — энд "үүсгэх" товч
+                   хэрэггүй, дээд талын толгойд аль хэдийн байгаа. */
+                <>
+                  <b>«{galleryFilter}» төлөвт загвар алга</b>
+                  <p>Өөр шүүлтүүр сонгоод үзнэ үү.</p>
+                </>
+              )}
             </div>
           ) : (
             <div className="model-grid">
@@ -2019,12 +2070,11 @@ export default function MorphApp() {
                   : "—"}
               </span>
             </div>
+            {/* "Холбоос хуулах" нь Хуваалцах цонхны дотор аль хэдийн байгаа
+                тул энд давхардуулахгүй. */}
             <div className="detail-links">
               <button onClick={() => setModal("share")}>
                 <Share2 size={15} /> Хуваалцах
-              </button>
-              <button onClick={copyLink}>
-                <Link2 size={15} /> Холбоос хуулах
               </button>
               {urls && modelReady ? (
                 <a href={urls.glbDownload}>

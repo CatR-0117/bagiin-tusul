@@ -259,7 +259,15 @@ input:focus-visible {
   backdrop-filter: blur(14px);
 }
 
+.header-left {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: clamp(16px, 2.5vw, 32px);
+}
+
 .header-brand {
+  flex: none;
   padding: 0;
   border: 0;
   background: transparent;
@@ -272,7 +280,22 @@ input:focus-visible {
   gap: clamp(14px, 2vw, 30px);
 }
 
-.desktop-nav > button:not(.button) {
+/*
+ * Баруун талын слот тогтмол өргөнтэй. Нүүр дээр "Одоо эхлэх" CTA, апп дээр
+ * кредитийн чип орох ба хоёулаа өөр өргөнтэй тул min-width-гүй бол дэлгэц
+ * солиход бүх цэс хажуу тийш үсэрдэг.
+ */
+.header-end {
+  display: flex;
+  width: 236px;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: clamp(14px, 2vw, 30px);
+}
+
+.desktop-nav > button:not(.button),
+.header-end > button:not(.button):not(.credit-chip) {
   padding: 8px 0;
   border: 0;
   background: none;
@@ -283,6 +306,7 @@ input:focus-visible {
 }
 
 .desktop-nav > button:not(.button):hover,
+.header-end > button:not(.button):not(.credit-chip):hover,
 .desktop-nav > button.active {
   color: var(--text);
 }
@@ -797,42 +821,38 @@ input:focus-visible {
   font-style: normal;
 }
 
+/* Ажлын урсгалын тайлбар — товч биш, зүгээр л дараалсан жагсаалт. */
 .process-section {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: clamp(24px, 4vw, 56px);
+  margin: 0;
   padding: clamp(52px, 6vw, 90px) clamp(20px, 4vw, 56px);
   border-top: 1px solid var(--line);
+  list-style: none;
 }
 
-.process-section button {
+.process-section li {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 34px 16px;
+  gap: 34px;
   padding: 20px 0 0;
-  border: 0;
   border-top: 1px solid rgba(255, 255, 255, 0.14);
-  background: transparent;
-  cursor: pointer;
   text-align: left;
-  transition: border-color 180ms ease;
 }
 
-.process-section button:first-child,
-.process-section button:hover {
+.process-section li:first-child {
   border-color: var(--purple);
 }
 
 .process-section span {
-  grid-column: 1 / -1;
   color: var(--muted);
   font-family: var(--font-mono), monospace;
   font-size: 10px;
   letter-spacing: 0.16em;
 }
 
-.process-section button:first-child span {
+.process-section li:first-child span {
   color: var(--purple);
 }
 
@@ -840,10 +860,6 @@ input:focus-visible {
   font-family: var(--font-geologica), sans-serif;
   font-size: clamp(21px, 2.3vw, 30px);
   line-height: 1.12;
-}
-
-.process-section svg {
-  color: var(--faint);
 }
 
 .use-cases-section {
@@ -948,30 +964,29 @@ input:focus-visible {
   flex-direction: column;
 }
 
-.progress-header {
-  display: flex;
-  min-height: 66px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px clamp(18px, 3vw, 40px);
-  border-bottom: 1px solid var(--line);
-  color: var(--muted);
-}
-
+/*
+ * Ажлын урсгалын алхмууд нь site-header дотор, брэндийн хажууд байрлана.
+ * (Өмнөх бүтэн өргөнтэй .progress-header барыг орлоно.)
+ */
 .progress-steps {
   display: flex;
   align-items: center;
-  gap: 10px;
+  margin: 0;
+  padding: 0 0 0 clamp(16px, 2.5vw, 32px);
+  border-left: 1px solid var(--line);
+  color: var(--muted);
   font-family: var(--font-mono), monospace;
   font-size: 9.5px;
+  gap: 10px;
   letter-spacing: 0.12em;
+  list-style: none;
 }
 
-.progress-steps span {
+.progress-steps li {
   display: flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
 }
 
 .progress-steps b {
@@ -979,12 +994,12 @@ input:focus-visible {
   font-weight: 500;
 }
 
-.progress-steps span.active {
+.progress-steps li.active {
   color: var(--text);
 }
 
-.progress-steps span.active b,
-.progress-steps span.done b {
+.progress-steps li.active b,
+.progress-steps li.done b {
   color: var(--lime);
 }
 
@@ -2951,6 +2966,23 @@ input:focus-visible {
     display: none;
   }
 
+  /*
+   * Утсан дээр гурван алхам багтахгүй тул зөвхөн ИДЭВХТЭЙ алхмыг үзүүлнэ
+   * ("01 ЗУРАГ ОРУУЛАХ"). Холбогч зураас, дууссан/ирээдүйн алхам нуугдана.
+   */
+  .progress-steps li:not(.active) {
+    display: none;
+  }
+
+  .progress-steps i {
+    display: none;
+  }
+
+  .progress-steps {
+    padding-left: 14px;
+    font-size: 8.5px;
+  }
+
   .mobile-nav-actions {
     display: flex;
     align-items: center;
@@ -3217,19 +3249,6 @@ input:focus-visible {
   .site-footer {
     flex-direction: column;
     line-height: 1.7;
-  }
-
-  .progress-header {
-    overflow-x: auto;
-  }
-
-  .progress-header > svg {
-    display: none;
-  }
-
-  .progress-steps {
-    min-width: max-content;
-    font-size: 8px;
   }
 
   .drop-zone {
@@ -4501,8 +4520,7 @@ input:focus-visible {
   .generation-screen > header,
   .detail-screen > header,
   .ar-screen > header,
-  .ar-standalone > header,
-  .progress-header {
+  .ar-standalone > header {
     padding-top: calc(12px + var(--safe-top));
   }
 
@@ -4680,6 +4698,20 @@ input:focus-visible {
 @media (max-width: 1040px) {
   .credit-chip small {
     display: none;
+  }
+
+  /* Чип нарийсахад слотын өргөнийг мөн багасгана (CTA-д хүрэлцэхүйц) */
+  .header-end {
+    width: 204px;
+  }
+
+  /* Алхмуудын үг хэт зай эзлэхгүйн тулд зөвхөн дугаар + идэвхтэй нэр */
+  .progress-steps li:not(.active) {
+    font-size: 0;
+  }
+
+  .progress-steps li:not(.active) b {
+    font-size: 9.5px;
   }
 }
 
