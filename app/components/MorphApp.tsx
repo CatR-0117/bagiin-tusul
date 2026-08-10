@@ -796,10 +796,10 @@ export default function MorphApp() {
       return;
     }
     if (
-      glb.size > 45 * 1024 * 1024 ||
-      (usdz?.size ?? 0) > 45 * 1024 * 1024
+      glb.size > 90 * 1024 * 1024 ||
+      (usdz?.size ?? 0) > 90 * 1024 * 1024
     ) {
-      addToast("Нэг файл 45 MB-аас бага байх ёстой");
+      addToast("GLB болон USDZ файл тус бүр 90 MB-аас бага байх ёстой");
       return;
     }
 
@@ -808,31 +808,62 @@ export default function MorphApp() {
     try {
       const body = new FormData();
       body.append("glb", glb);
-      if (usdz) body.append("usdz", usdz);
 
       const response = await fetch("/api/manual-model", {
         method: "POST",
         body,
       });
-      const payload = (await response.json()) as {
-        id?: string;
-        name?: string;
-        hasUsdz?: boolean;
-        createdAt?: number;
-        error?: string;
-      };
+      const responseText = await response.text();
+      const payload = (() => {
+        try {
+          return JSON.parse(responseText) as {
+            id?: string;
+            name?: string;
+            hasUsdz?: boolean;
+            createdAt?: number;
+            error?: string;
+          };
+        } catch {
+          return {
+            error:
+              response.status === 413
+                ? "GLB файл серверийн зөвшөөрөх хэмжээнээс том байна."
+                : "Серверээс буруу хариу ирлээ. Дахин оролдоно уу.",
+          };
+        }
+      })();
       if (!response.ok || !payload.id) {
         throw new Error(payload.error ?? "3D загварыг оруулж чадсангүй.");
       }
 
+      let hasUsdz = false;
+      if (usdz) {
+        const usdzBody = new FormData();
+        usdzBody.append("usdz", usdz);
+        const usdzResponse = await fetch(`/api/manual-model/${payload.id}/usdz`, {
+          method: "PUT",
+          body: usdzBody,
+        });
+        hasUsdz = usdzResponse.ok;
+        if (!usdzResponse.ok) {
+          addToast("GLB орлоо, харин USDZ хадгалагдсангүй");
+        }
+      }
+
+      const saved = payload as {
+        id?: string;
+        name?: string;
+        createdAt?: number;
+      };
+
       saveModel({
         id: payload.id,
-        name: payload.name ?? glb.name.replace(/\.glb$/i, ""),
+        name: saved.name ?? glb.name.replace(/\.glb$/i, ""),
         status: "SUCCEEDED",
-        createdAt: payload.createdAt ?? Date.now(),
+        createdAt: saved.createdAt ?? Date.now(),
         quality: "high",
         kind: "manual",
-        hasUsdz: Boolean(payload.hasUsdz),
+        hasUsdz,
       });
       setTask(null);
       setTaskKind("manual");
@@ -1046,7 +1077,7 @@ export default function MorphApp() {
                     <p>
                       GLB файлаа оруулаад шууд 3D-аар үзэж, QR кодоор утсандаа
                       нээгээд AR-аар байрлуулаарай. iPhone-д USDZ файлыг хамт
-                      сонговол хамгийн найдвартай.
+                      сонговол хамгийн найдвартай. <strong>Файл тус бүр 90 MB хүртэл.</strong>
                     </p>
                   </div>
                   <Button

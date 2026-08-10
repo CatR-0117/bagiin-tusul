@@ -7,8 +7,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const MAX_FILE_BYTES = 45 * 1024 * 1024;
-const MAX_TOTAL_BYTES = 80 * 1024 * 1024;
+const MAX_FILE_BYTES = 90 * 1024 * 1024;
 
 function fileExtension(file: File) {
   return file.name.split(".").pop()?.toLowerCase() ?? "";
@@ -18,24 +17,13 @@ export async function POST(request: Request) {
   try {
     const data = await request.formData();
     const glb = data.get("glb");
-    const usdz = data.get("usdz");
 
     if (!(glb instanceof File) || fileExtension(glb) !== "glb") {
       return Response.json({ error: "GLB файл шаардлагатай." }, { status: 400 });
     }
-    if (usdz !== null && (!(usdz instanceof File) || fileExtension(usdz) !== "usdz")) {
-      return Response.json({ error: "USDZ файл буруу байна." }, { status: 400 });
-    }
-
-    const usdzFile = usdz instanceof File ? usdz : null;
-    const totalSize = glb.size + (usdzFile?.size ?? 0);
-    if (
-      glb.size > MAX_FILE_BYTES ||
-      (usdzFile?.size ?? 0) > MAX_FILE_BYTES ||
-      totalSize > MAX_TOTAL_BYTES
-    ) {
+    if (glb.size > MAX_FILE_BYTES) {
       return Response.json(
-        { error: "Файл хэт том байна. Нэг файл 45 MB, нийт 80 MB-аас бага байна." },
+        { error: "GLB файл 90 MB-аас бага байх ёстой." },
         { status: 413 },
       );
     }
@@ -46,7 +34,7 @@ export async function POST(request: Request) {
     const meta: ManualModelMeta = {
       id,
       name,
-      hasUsdz: Boolean(usdzFile),
+      hasUsdz: false,
       createdAt,
     };
     const bucket = getModelBucket();
@@ -55,11 +43,6 @@ export async function POST(request: Request) {
       bucket.put(manualModelKey(id, "model.glb"), glb.stream(), {
         httpMetadata: { contentType: "model/gltf-binary" },
       }),
-      usdzFile
-        ? bucket.put(manualModelKey(id, "model.usdz"), usdzFile.stream(), {
-            httpMetadata: { contentType: "model/vnd.usdz+zip" },
-          })
-        : Promise.resolve(null),
       bucket.put(manualModelKey(id, "meta.json"), JSON.stringify(meta), {
         httpMetadata: { contentType: "application/json; charset=utf-8" },
       }),
