@@ -563,8 +563,8 @@ a:focus-visible {
   inset: 51px 0 0;
   background-image:
     linear-gradient(180deg, rgba(245, 248, 252, .04), rgba(231, 221, 210, .12)),
-    url("/ar-room.png");
-  background-position: calc(33% + var(--parallax-x)) center;
+    url("/ar-coffee-table.avif");
+  background-position: calc(50% + var(--parallax-x)) center;
   background-size: cover;
   opacity: var(--ar-opacity);
   transition: opacity 180ms linear;
@@ -1493,8 +1493,8 @@ a:focus-visible {
   overflow: hidden;
   background-image:
     linear-gradient(180deg, rgba(246, 248, 250, .04), rgba(221, 205, 190, .08)),
-    url("/ar-room.png");
-  background-position: 33% center;
+    url("/ar-coffee-table.avif");
+  background-position: center;
   background-size: cover;
 }
 
@@ -1511,8 +1511,8 @@ a:focus-visible {
 
 .snap-ar-vase {
   z-index: 3;
-  top: -30%;
-  bottom: 39%;
+  top: -10%;
+  bottom: 10%;
   height: auto;
   filter: drop-shadow(0 18px 14px rgba(55, 42, 37, .14));
   animation:
@@ -1522,12 +1522,12 @@ a:focus-visible {
 
 .snap-ar-phone .snap-reticle {
   z-index: 2;
-  top: 37%;
+  top: 64%;
   bottom: auto;
 }
 
 .snap-story-shell .snap-reticle {
-  top: 41%;
+  top: 67%;
   bottom: auto;
 }
 
@@ -1542,7 +1542,7 @@ a:focus-visible {
 
 .snap-ar-contact {
   z-index: 2;
-  top: 38.8%;
+  top: 66%;
   bottom: auto;
   width: 17%;
   height: 2.2%;
@@ -1555,7 +1555,7 @@ a:focus-visible {
 .snap-room-reference {
   position: absolute;
   z-index: 9;
-  top: 44%;
+  top: 72%;
   left: 12px;
   display: inline-flex;
   align-items: center;
@@ -1582,18 +1582,18 @@ a:focus-visible {
 .snap-vase-measure {
   position: absolute;
   z-index: 8;
-  top: 32%;
+  top: 55%;
   right: 34%;
   bottom: auto;
   width: 1px;
-  height: 12%;
+  height: 15%;
   border-left: 1px solid rgba(255,255,255,.86);
   filter: drop-shadow(0 1px 2px rgba(17,26,54,.34));
 }
 
 .snap-ar-phone .snap-vase-measure {
-  top: 27%;
-  height: 12%;
+  top: 50%;
+  height: 17%;
 }
 
 .snap-vase-measure::before,
@@ -2192,14 +2192,14 @@ a:focus-visible {
 .ar-standalone-stage {
   background-image:
     linear-gradient(180deg, rgba(246, 248, 250, .03), rgba(221, 205, 190, .09)),
-    url("/ar-room.png");
-  background-position: 33% center;
+    url("/ar-coffee-table.avif");
+  background-position: center;
   background-size: cover;
 }
 
 .ar-table-vase {
-  top: -30%;
-  bottom: 39%;
+  top: -10%;
+  bottom: 10%;
   height: auto;
 }
 
@@ -2227,7 +2227,7 @@ a:focus-visible {
 .ar-scale-compare {
   position: absolute;
   z-index: 5;
-  top: 46%;
+  top: 72%;
   left: 20px;
   display: grid;
   gap: 4px;

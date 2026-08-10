@@ -236,7 +236,7 @@ function HeroStory({ onCreate }: { onCreate: () => void }) {
     "--orbit-y": `${Math.cos(orbit * 0.78) * 1.35}deg`,
     "--scene-lift": `${Math.sin(orbit * 1.25) * -6}px`,
     "--parallax-x": `${Math.sin(orbit) * 14}px`,
-    "--ar-lift": `${arAmount * -34}%`,
+    "--ar-lift": `${arAmount * -7}%`,
     "--model-scale": 1 - arAmount * 0.12,
     "--hero-shadow-width": `${28 - arAmount * 14}%`,
     "--hero-shadow-bottom": `${13 + arAmount * 9}%`,
@@ -328,7 +328,7 @@ function HeroStory({ onCreate }: { onCreate: () => void }) {
                   autoRotate={activeProgress > 0.6}
                   interactive={phase >= 3}
                   showGrid={phase === 2}
-                  scale={1 - arAmount * 0.79}
+                  scale={1 - arAmount * 0.72}
                   distance={4.25}
                   cameraY={0.92}
                   label="Vase transforming from mesh to textured 3D model"
@@ -367,7 +367,7 @@ function HeroStory({ onCreate }: { onCreate: () => void }) {
                 <div className="snap-phone-status"><span>9:41</span><span>● ● ●</span></div>
                 <div className="snap-room-lines" />
                 <span className="snap-surface-note">SURFACE FOUND</span>
-                <span className="snap-room-reference"><i /> Placed on coffee table</span>
+                <span className="snap-room-reference"><i /> Centered on coffee table</span>
                 <span className="snap-vase-measure"><i /><b>42 cm</b></span>
                 <span className="snap-reticle"><i /></span>
                 <div className="snap-ar-bottom">
@@ -538,18 +538,18 @@ export default function SnapLanding({ onCreate, onModels }: SnapLandingProps) {
                   autoRotate={false}
                   interactive={false}
                   presentation="ar"
-                  scale={0.21}
+                  scale={0.28}
                   distance={4.4}
                   cameraY={0.72}
                   label="3D vase placed on a detected floor in AR"
                 />
                 <span className="snap-reticle"><i /></span>
                 <span className="snap-ar-contact" />
-                <span className="snap-room-reference"><i /> Placed on coffee table</span>
+                <span className="snap-room-reference"><i /> Centered on coffee table</span>
                 <span className="snap-vase-measure"><i /><b>42 cm</b></span>
                 <div className="snap-ar-model-info">
                   <span className="snap-ar-model-swatch" />
-                  <span><b>Ceramic vase</b><small>42 cm · tabletop placement</small></span>
+                  <span><b>Ceramic vase</b><small>42 cm · centered placement</small></span>
                   <Check size={13} />
                 </div>
               </div>
