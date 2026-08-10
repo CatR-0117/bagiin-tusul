@@ -1633,26 +1633,26 @@ export default function MorphApp() {
               />
             ) : (
               <VaseScene
-                className="vase-canvas"
+                className="vase-canvas ar-table-vase"
                 color={vaseColor}
                 material={material}
                 autoRotate={false}
                 presentation="ar"
-                scale={0.34}
+                scale={0.21}
                 distance={4.4}
                 cameraY={0.72}
               />
             )}
             {!modelReady && (
               <div className="ar-scale-compare" aria-label="Өрөөний тавилгатай харьцуулсан хэмжээ">
-                <span>COFFEE TABLE · ≈ 40 CM</span>
+                <span>PLACED ON COFFEE TABLE</span>
                 <b>VASE · 42 CM</b>
               </div>
             )}
             <span>
               {modelReady
                 ? "1 : 1 · БОДИТ ХЭМЖЭЭ (AUTO-SIZE)"
-                : "ЖИШЭЭ ВААР · 42 CM · ӨРӨӨТЭЙ ХАРЬЦУУЛСАН"}
+                : "ЖИШЭЭ ВААР · 42 CM · ШИРЭЭН ДЭЭР БАЙРЛУУЛСАН"}
             </span>
           </div>
           <div className="ar-content">
