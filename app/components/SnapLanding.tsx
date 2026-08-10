@@ -141,69 +141,44 @@ function SnapMark() {
 
 function HeroStory({ onCreate }: { onCreate: () => void }) {
   const storyRef = useRef<HTMLElement>(null);
-  const pinRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
   const [progress, setProgress] = useState(reduceMotion ? 1 : 0);
-  const [mobile, setMobile] = useState(false);
   const activeProgress = reduceMotion ? 1 : progress;
   const phase = phaseFor(activeProgress);
-
-  useEffect(() => {
-    const media = window.matchMedia("(max-width: 767px)");
-    const update = () => setMobile(media.matches);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
 
   useEffect(() => {
     if (reduceMotion) {
       return;
     }
 
-    if (mobile) {
-      let step = 0;
-      const values = [0.08, 0.29, 0.52, 0.73, 0.94];
-      const timer = window.setInterval(() => {
-        step = (step + 1) % values.length;
-        setProgress(values[step]);
-      }, 2200);
-      return () => window.clearInterval(timer);
-    }
-
     let cancelled = false;
     let cleanup = () => {};
 
-    void Promise.all([import("gsap"), import("gsap/ScrollTrigger")]).then(
-      ([gsapModule, scrollModule]) => {
-        if (cancelled || !storyRef.current || !pinRef.current) return;
-        const gsap = gsapModule.gsap;
-        const ScrollTrigger = scrollModule.ScrollTrigger;
-        gsap.registerPlugin(ScrollTrigger);
+    void import("gsap").then((gsapModule) => {
+      if (cancelled || !storyRef.current) return;
+      const gsap = gsapModule.gsap;
+      const timelineProgress = { value: 0 };
 
-        const context = gsap.context(() => {
-          ScrollTrigger.create({
-            trigger: storyRef.current,
-            start: "top top",
-            end: () => `+=${window.innerWidth < 1100 ? 2200 : 3200}`,
-            pin: pinRef.current,
-            pinSpacing: true,
-            scrub: 0.55,
-            anticipatePin: 1,
-            invalidateOnRefresh: true,
-            onUpdate: (self) => setProgress(self.progress),
-          });
-        }, storyRef);
+      const context = gsap.context(() => {
+        gsap.to(timelineProgress, {
+          value: 1,
+          duration: 10,
+          repeat: -1,
+          repeatDelay: 0.6,
+          yoyo: true,
+          ease: "sine.inOut",
+          onUpdate: () => setProgress(timelineProgress.value),
+        });
+      }, storyRef);
 
-        cleanup = () => context.revert();
-      },
-    );
+      cleanup = () => context.revert();
+    });
 
     return () => {
       cancelled = true;
       cleanup();
     };
-  }, [mobile, reduceMotion]);
+  }, [reduceMotion]);
 
   const meshProgress =
     activeProgress < 0.39
@@ -228,7 +203,7 @@ function HeroStory({ onCreate }: { onCreate: () => void }) {
 
   return (
     <section ref={storyRef} className="snap-hero" id="top" style={style}>
-      <div ref={pinRef} className="snap-hero-pin">
+      <div className="snap-hero-pin">
         <div className="snap-hero-aurora" aria-hidden="true" />
         <div className="snap-hero-inner">
           <motion.div
@@ -293,6 +268,8 @@ function HeroStory({ onCreate }: { onCreate: () => void }) {
                 </div>
               </div>
 
+              <div className="snap-ar-environment" aria-hidden="true" />
+
               <div className="snap-model-object" aria-hidden={modelOpacity < 0.1}>
                 <VaseScene
                   className="snap-story-canvas"
@@ -349,15 +326,13 @@ function HeroStory({ onCreate }: { onCreate: () => void }) {
 
             <div className="snap-story-progress" aria-label={`Story step ${phase + 1} of 5`}>
               {heroSteps.map((step, index) => (
-                <button
-                  type="button"
+                <span
                   key={step.label}
-                  className={index === phase ? "active" : index < phase ? "done" : ""}
-                  onClick={() => mobile && setProgress([0.08, 0.29, 0.52, 0.73, 0.94][index])}
+                  className={`snap-story-step ${index === phase ? "active" : index < phase ? "done" : ""}`}
                 >
                   <i />
-                  <span><b>{step.label}</b><small>{step.detail}</small></span>
-                </button>
+                  <span className="snap-story-step-copy"><b>{step.label}</b><small>{step.detail}</small></span>
+                </span>
               ))}
             </div>
           </div>

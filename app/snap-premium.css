@@ -535,6 +535,20 @@ a:focus-visible {
   transform: translateY(calc(var(--ar-opacity) * 40px)) scale(calc(1 - var(--ar-opacity) * .12));
 }
 
+.snap-ar-environment {
+  position: absolute;
+  z-index: 5;
+  inset: 51px 0 0;
+  background-image:
+    linear-gradient(180deg, rgba(245, 248, 252, .04), rgba(231, 221, 210, .12)),
+    url("/ar-room.png");
+  background-position: center;
+  background-size: cover;
+  opacity: var(--ar-opacity);
+  transition: opacity 180ms linear;
+  pointer-events: none;
+}
+
 .snap-object-shadow,
 .snap-ar-contact {
   position: absolute;
@@ -692,9 +706,7 @@ a:focus-visible {
   z-index: 15;
   inset: 0;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(195,212,225,.26), rgba(235,225,216,.5)),
-    radial-gradient(circle at 60% 30%, #e8f2f6, #d8ddd8 52%, #c6b7aa 100%);
+  background: transparent;
   opacity: var(--ar-opacity);
   pointer-events: none;
 }
@@ -814,20 +826,18 @@ a:focus-visible {
   grid-template-columns: repeat(5, 1fr);
 }
 
-.snap-story-progress button {
+.snap-story-step {
   position: relative;
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 8px;
   padding: 15px 6px 0;
-  border: 0;
   border-top: 1px solid rgba(28,38,70,.12);
-  background: transparent;
   color: #9299a9;
   text-align: left;
 }
 
-.snap-story-progress button::before {
+.snap-story-step::before {
   position: absolute;
   top: -1px;
   left: 0;
@@ -838,8 +848,8 @@ a:focus-visible {
   transition: width 300ms ease;
 }
 
-.snap-story-progress button.active::before,
-.snap-story-progress button.done::before {
+.snap-story-step.active::before,
+.snap-story-step.done::before {
   width: 100%;
 }
 
@@ -857,7 +867,7 @@ a:focus-visible {
   box-shadow: 0 0 0 4px rgba(110,84,247,.1);
 }
 
-.snap-story-progress span {
+.snap-story-step-copy {
   display: grid;
   gap: 2px;
 }
@@ -1291,9 +1301,11 @@ a:focus-visible {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(219,234,240,.45), rgba(217,205,194,.5)),
-    radial-gradient(circle at 58% 34%, #eff6f9, #d5dcd9 52%, #cbb8a8 100%);
+  background-image:
+    linear-gradient(180deg, rgba(246, 248, 250, .04), rgba(221, 205, 190, .08)),
+    url("/ar-room.png");
+  background-position: center;
+  background-size: cover;
 }
 
 .snap-ar-vase {
@@ -1808,6 +1820,15 @@ a:focus-visible {
   background: rgba(255,255,255,.88);
 }
 
+.ar-preview,
+.ar-standalone-stage {
+  background-image:
+    linear-gradient(180deg, rgba(246, 248, 250, .03), rgba(221, 205, 190, .09)),
+    url("/ar-room.png");
+  background-position: center;
+  background-size: cover;
+}
+
 .generation-preview::before,
 .studio-viewport::before,
 .ar-preview::before,
@@ -2081,9 +2102,8 @@ a:focus-visible {
     overflow-x: auto;
   }
 
-  .snap-story-progress button {
+  .snap-story-step {
     min-width: 82px;
-    cursor: pointer;
   }
 
   .snap-story-progress small {
