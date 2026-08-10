@@ -124,6 +124,7 @@ export default function VaseScene({
     autoRotate,
     progress,
     showGrid,
+    scale,
   });
 
   useEffect(() => {
@@ -134,8 +135,9 @@ export default function VaseScene({
       autoRotate,
       progress,
       showGrid,
+      scale,
     };
-  }, [autoRotate, color, material, progress, roughness, showGrid]);
+  }, [autoRotate, color, material, progress, roughness, scale, showGrid]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -171,7 +173,7 @@ export default function VaseScene({
     const group = new THREE.Group();
     group.position.y = -0.86;
     group.rotation.y = -0.45;
-    group.scale.setScalar(scale);
+    group.scale.setScalar(settingsRef.current.scale);
     scene.add(group);
 
     const geometry = buildVaseGeometry(compact ? 50 : 60);
@@ -388,6 +390,7 @@ export default function VaseScene({
       }
 
       const p = THREE.MathUtils.clamp(settings.progress, 0, 1);
+      group.scale.setScalar(THREE.MathUtils.clamp(settings.scale, 0.05, 2.5));
       pointMaterial.opacity = THREE.MathUtils.clamp(1 - p / 0.34, 0, 1) * 0.95;
       wireMaterial.opacity =
         p < 0.32
@@ -457,7 +460,7 @@ export default function VaseScene({
       pmrem.dispose();
       renderer.dispose();
     };
-  }, [cameraY, compact, distance, interactive, presentation, scale, still]);
+  }, [cameraY, compact, distance, interactive, presentation, still]);
 
   return <canvas ref={canvasRef} className={className} aria-label={label} />;
 }

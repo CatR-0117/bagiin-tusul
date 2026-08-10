@@ -1638,12 +1638,22 @@ export default function MorphApp() {
                 material={material}
                 autoRotate={false}
                 presentation="ar"
-                scale={0.8}
+                scale={0.34}
                 distance={4.4}
                 cameraY={0.72}
               />
             )}
-            <span>1 : 1 · БОДИТ ХЭМЖЭЭ (AUTO-SIZE)</span>
+            {!modelReady && (
+              <div className="ar-scale-compare" aria-label="Өрөөний тавилгатай харьцуулсан хэмжээ">
+                <span>COFFEE TABLE · ≈ 40 CM</span>
+                <b>VASE · 42 CM</b>
+              </div>
+            )}
+            <span>
+              {modelReady
+                ? "1 : 1 · БОДИТ ХЭМЖЭЭ (AUTO-SIZE)"
+                : "ЖИШЭЭ ВААР · 42 CM · ӨРӨӨТЭЙ ХАРЬЦУУЛСАН"}
+            </span>
           </div>
           <div className="ar-content">
             <div>

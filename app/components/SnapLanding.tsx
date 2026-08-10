@@ -238,6 +238,7 @@ function HeroStory({ onCreate }: { onCreate: () => void }) {
     "--parallax-x": `${Math.sin(orbit) * 14}px`,
     "--ar-lift": `${arAmount * 40}px`,
     "--model-scale": 1 - arAmount * 0.12,
+    "--hero-shadow-width": `${28 - arAmount * 14}%`,
     "--story-percent": `${activeProgress * 100}%`,
   } as CSSProperties;
 
@@ -326,6 +327,7 @@ function HeroStory({ onCreate }: { onCreate: () => void }) {
                   autoRotate={activeProgress > 0.6}
                   interactive={phase >= 3}
                   showGrid={phase === 2}
+                  scale={1 - arAmount * 0.66}
                   distance={4.25}
                   cameraY={0.92}
                   label="Vase transforming from mesh to textured 3D model"
@@ -364,6 +366,8 @@ function HeroStory({ onCreate }: { onCreate: () => void }) {
                 <div className="snap-phone-status"><span>9:41</span><span>● ● ●</span></div>
                 <div className="snap-room-lines" />
                 <span className="snap-surface-note">SURFACE FOUND</span>
+                <span className="snap-room-reference"><i /> Coffee table ≈ 40 cm</span>
+                <span className="snap-vase-measure"><i /><b>42 cm</b></span>
                 <span className="snap-reticle"><i /></span>
                 <div className="snap-ar-bottom">
                   <span />
@@ -533,16 +537,18 @@ export default function SnapLanding({ onCreate, onModels }: SnapLandingProps) {
                   autoRotate={false}
                   interactive={false}
                   presentation="ar"
-                  scale={0.8}
+                  scale={0.34}
                   distance={4.4}
                   cameraY={0.72}
                   label="3D vase placed on a detected floor in AR"
                 />
                 <span className="snap-reticle"><i /></span>
                 <span className="snap-ar-contact" />
+                <span className="snap-room-reference"><i /> Coffee table ≈ 40 cm</span>
+                <span className="snap-vase-measure"><i /><b>42 cm</b></span>
                 <div className="snap-ar-model-info">
                   <span className="snap-ar-model-swatch" />
-                  <span><b>Ceramic vase</b><small>42 cm · 1:1 scale</small></span>
+                  <span><b>Ceramic vase</b><small>42 cm · room-matched scale</small></span>
                   <Check size={13} />
                 </div>
               </div>
