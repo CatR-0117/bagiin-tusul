@@ -19,6 +19,7 @@ interface Env {
       };
     };
   };
+  MODELS: R2Bucket;
 }
 
 interface WorkerExecutionContext {

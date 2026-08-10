@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, Download, RotateCcw, Smartphone } from "lucide-react";
 import ModelViewer, { type ModelViewerHandle } from "./ModelViewer";
+import QrCode from "./QrCode";
 import { absoluteUrl, modelUrls, usePlatform, type Platform } from "@/lib/models";
 import type { PublicTask } from "@/lib/meshy";
+import type { ManualModelMeta } from "@/lib/manual-models";
 
 const HINTS: Record<Platform, string[]> = {
   ios: [
@@ -28,9 +30,13 @@ const HINTS: Record<Platform, string[]> = {
 export default function ArViewer({
   id,
   initial,
+  manual,
+  pageUrl,
 }: {
   id: string;
   initial: PublicTask | null;
+  manual: ManualModelMeta | null;
+  pageUrl: string;
 }) {
   const urls = modelUrls(id);
   const viewer = useRef<ModelViewerHandle>(null);
@@ -42,6 +48,7 @@ export default function ArViewer({
 
   // Загвар бэлэн болтол төлөвийг тандана.
   useEffect(() => {
+    if (manual) return;
     if (task?.status === "SUCCEEDED" || task?.status === "FAILED") return;
 
     const timer = window.setInterval(async () => {
@@ -59,7 +66,7 @@ export default function ArViewer({
     }, 3000);
 
     return () => window.clearInterval(timer);
-  }, [id, task?.status]);
+  }, [id, manual, task?.status]);
 
   const openAr = useCallback(() => {
     if (viewer.current?.canActivateAR()) {
@@ -68,7 +75,11 @@ export default function ArViewer({
     }
     // model-viewer AR-ыг идэвхжүүлж чадахгүй бол шууд файл руу шилжинэ.
     if (platform === "ios") {
-      window.location.href = urls.usdz;
+      if (manual && !manual.hasUsdz) {
+        setNote("iPhone дээр Safari ашиглана уу. Илүү найдвартай AR-д USDZ хувилбарыг хамт оруулна.");
+      } else {
+        window.location.href = urls.usdz;
+      }
     } else if (platform === "android") {
       const file = absoluteUrl(urls.glb);
       window.location.href =
@@ -78,9 +89,9 @@ export default function ArViewer({
     } else {
       setNote("AR горим зөвхөн iPhone эсвэл Android утсан дээр ажиллана.");
     }
-  }, [platform, urls.glb, urls.usdz]);
+  }, [manual, platform, urls.glb, urls.usdz]);
 
-  const ready = task?.status === "SUCCEEDED";
+  const ready = Boolean(manual) || task?.status === "SUCCEEDED";
   const failed = task?.status === "FAILED" || task?.status === "CANCELED";
 
   return (
@@ -118,8 +129,8 @@ export default function ArViewer({
             <ModelViewer
               ref={viewer}
               src={urls.glb}
-              iosSrc={urls.usdz}
-              poster={urls.poster}
+              iosSrc={!manual || manual.hasUsdz ? urls.usdz : undefined}
+              poster={manual ? undefined : urls.poster}
               alt="AR-д бэлэн 3D загвар"
               ar
               arScale="auto"
@@ -131,6 +142,15 @@ export default function ArViewer({
           </div>
 
           <div className="ar-standalone-panel">
+            {platform === "desktop" && pageUrl && (
+              <div className="ar-standalone-qr">
+                <QrCode value={pageUrl} size={188} />
+                <div>
+                  <b>Утсаараа уншуулна уу</b>
+                  <span>QR код таны утсан дээр энэ загварын AR хуудсыг нээнэ.</span>
+                </div>
+              </div>
+            )}
             <button className="ar-standalone-cta" onClick={openAr}>
               <Smartphone size={18} />
               Бодит орчинд байрлуулах
@@ -149,9 +169,11 @@ export default function ArViewer({
               <a href={urls.glbDownload}>
                 <Download size={14} /> GLB
               </a>
-              <a href={urls.usdzDownload}>
-                <Download size={14} /> USDZ
-              </a>
+              {(!manual || manual.hasUsdz) && (
+                <a href={urls.usdzDownload}>
+                  <Download size={14} /> USDZ
+                </a>
+              )}
               <button
                 onClick={() => {
                   const shot = viewer.current?.screenshot();

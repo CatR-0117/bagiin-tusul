@@ -1,8 +1,10 @@
 import vinext from "vinext";
 import { defineConfig } from "vite";
+import hostingConfig from "./.openai/hosting.json";
 import { sites } from "./sites-vite-plugin";
 
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
+const { r2 } = hostingConfig;
 
 export default defineConfig(async () => {
   process.env.WRANGLER_WRITE_LOGS ??= "false";
@@ -23,6 +25,9 @@ export default defineConfig(async () => {
         config: {
           main: "./worker/index.ts",
           compatibility_flags: ["nodejs_compat"],
+          r2_buckets: r2
+            ? [{ binding: r2, bucket_name: "snapar-models-local" }]
+            : [],
         },
       }),
     ],

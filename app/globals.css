@@ -3693,6 +3693,44 @@ input:focus-visible {
   background: var(--panel-soft);
 }
 
+.ar-standalone-qr {
+  display: flex;
+  width: min(560px, 100%);
+  align-items: center;
+  gap: 22px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+}
+
+.ar-standalone-qr .qr-canvas-wrap {
+  flex: 0 0 auto;
+}
+
+.ar-standalone-qr canvas {
+  display: block;
+  width: 156px;
+  height: 156px;
+}
+
+.ar-standalone-qr > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.ar-standalone-qr b {
+  font-family: var(--font-geologica), sans-serif;
+  font-size: 18px;
+}
+
+.ar-standalone-qr span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .ar-standalone-cta {
   display: flex;
   width: 100%;

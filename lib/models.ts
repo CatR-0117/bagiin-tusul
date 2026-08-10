@@ -10,8 +10,10 @@ export type StoredModel = {
   status: "PENDING" | "IN_PROGRESS" | "SUCCEEDED" | "FAILED" | "CANCELED";
   createdAt: number;
   quality: "fast" | "high";
-  /** image-to-3d эсвэл multi-image-to-3d */
-  kind?: "image-to-3d" | "multi-image-to-3d";
+  /** AI-аар үүсгэсэн эсвэл гараар оруулсан загвар */
+  kind?: "image-to-3d" | "multi-image-to-3d" | "manual";
+  /** Гараар оруулсан загвар iOS-д зориулсан USDZ хувилбартай эсэх */
+  hasUsdz?: boolean;
   /** Хэдэн эх зурагнаас үүсгэсэн */
   sourceCount?: number;
   /** Эх зургийн жижигрүүлсэн хувилбар (сангийн жагсаалтад харуулах) */

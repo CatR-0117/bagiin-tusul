@@ -1,5 +1,10 @@
 import { ASSET_CONTENT_TYPE, getAssetUrl, MeshyError } from "@/lib/meshy";
 import type { AssetKind } from "@/lib/meshy";
+import {
+  getModelBucket,
+  isManualModelId,
+  manualModelKey,
+} from "@/lib/manual-models";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +23,58 @@ const FILE_MAP: Record<string, AssetKind> = {
   "preview.png": "preview",
 };
 
+const MANUAL_FILES: Record<string, string> = {
+  "model.glb": "model/gltf-binary",
+  "model.usdz": "model/vnd.usdz+zip",
+};
+
+async function serveManual(
+  request: Request,
+  id: string,
+  file: string,
+  head: boolean,
+) {
+  const contentType = MANUAL_FILES[file];
+  if (!contentType) return new Response("Not found", { status: 404 });
+
+  const range = request.headers.get("range");
+  const object = await getModelBucket().get(
+    manualModelKey(id, file),
+    range ? { range: request.headers } : undefined,
+  );
+  if (!object) return new Response("Not found", { status: 404 });
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("Content-Type", contentType);
+  headers.set("Cache-Control", "public, max-age=31536000, immutable");
+  headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Accept-Ranges", "bytes");
+  headers.set("ETag", object.httpEtag);
+
+  const download = new URL(request.url).searchParams.get("dl") === "1";
+  headers.set(
+    "Content-Disposition",
+    `${download ? "attachment" : "inline"}; filename="${file}"`,
+  );
+
+  let status = 200;
+  if (range && object.range) {
+    const { offset, length } = object.range;
+    headers.set("Content-Range", `bytes ${offset}-${offset + length - 1}/${object.size}`);
+    headers.set("Content-Length", String(length));
+    status = 206;
+  } else {
+    headers.set("Content-Length", String(object.size));
+  }
+
+  return new Response(head ? null : object.body, { status, headers });
+}
+
 async function proxy(request: Request, id: string, file: string, head = false) {
+  if (isManualModelId(id)) {
+    return serveManual(request, id, file, head);
+  }
   const kind = FILE_MAP[file];
 
   if (!kind) {

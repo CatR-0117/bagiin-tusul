@@ -527,6 +527,8 @@ export default function MorphApp() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [modal, setModal] = useState<Modal>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const manualModelInput = useRef<HTMLInputElement>(null);
+  const [manualUploading, setManualUploading] = useState(false);
 
   /* ---------------------------- Meshy төлөв ---------------------------- */
   // 1–4 эх зураг. Эргүүлэлт/тайралт нь эдгээрт бодитоор хэрэглэгдэнэ.
@@ -544,7 +546,9 @@ export default function MorphApp() {
   const platform = usePlatform();
   const viewerRef = useRef<ModelViewerHandle>(null);
 
-  const modelReady = task?.status === "SUCCEEDED";
+  const currentModel = models.find((model) => model.id === taskId);
+  const isManualModel = currentModel?.kind === "manual";
+  const modelReady = task?.status === "SUCCEEDED" || isManualModel;
   const urls = taskId ? modelUrls(taskId) : null;
 
   const addToast = useCallback((text: string) => {
@@ -636,6 +640,7 @@ export default function MorphApp() {
    */
   useEffect(() => {
     if (!taskId) return;
+    if (taskKind === "manual" || taskId.startsWith("upload_")) return;
     // Дууссан даалгаврыг дахин тандахгүй.
     if (
       task?.status === "SUCCEEDED" ||
@@ -777,6 +782,74 @@ export default function MorphApp() {
     void addFiles(event.target.files);
     event.target.value = "";
   };
+
+  /** Бэлэн GLB (+ сонголтоор USDZ)-г шууд AR холбоостой болгох. */
+  const handleManualModel = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (files.length === 0 || manualUploading) return;
+
+    const glb = files.find((file) => file.name.toLowerCase().endsWith(".glb"));
+    const usdz = files.find((file) => file.name.toLowerCase().endsWith(".usdz"));
+    if (!glb) {
+      addToast("GLB файл сонгоно уу");
+      return;
+    }
+    if (
+      glb.size > 45 * 1024 * 1024 ||
+      (usdz?.size ?? 0) > 45 * 1024 * 1024
+    ) {
+      addToast("Нэг файл 45 MB-аас бага байх ёстой");
+      return;
+    }
+
+    setManualUploading(true);
+    setGenError(null);
+    try {
+      const body = new FormData();
+      body.append("glb", glb);
+      if (usdz) body.append("usdz", usdz);
+
+      const response = await fetch("/api/manual-model", {
+        method: "POST",
+        body,
+      });
+      const payload = (await response.json()) as {
+        id?: string;
+        name?: string;
+        hasUsdz?: boolean;
+        createdAt?: number;
+        error?: string;
+      };
+      if (!response.ok || !payload.id) {
+        throw new Error(payload.error ?? "3D загварыг оруулж чадсангүй.");
+      }
+
+      saveModel({
+        id: payload.id,
+        name: payload.name ?? glb.name.replace(/\.glb$/i, ""),
+        status: "SUCCEEDED",
+        createdAt: payload.createdAt ?? Date.now(),
+        quality: "high",
+        kind: "manual",
+        hasUsdz: Boolean(payload.hasUsdz),
+      });
+      setTask(null);
+      setTaskKind("manual");
+      setTaskId(payload.id);
+      addToast("3D загвар AR-д бэлэн боллоо");
+      go("ar");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "3D загварыг оруулж чадсангүй.";
+      setGenError(message);
+      addToast(message);
+    } finally {
+      setManualUploading(false);
+    }
+  };
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setDragging(false);
@@ -872,6 +945,7 @@ export default function MorphApp() {
   const openModel = useCallback(
     (model: StoredModel, screenName: Screen = "detail") => {
       setTaskId(model.id);
+      setTaskKind(model.kind ?? null);
       setTask(null);
       setGenError(null);
       go(screenName);
@@ -880,7 +954,6 @@ export default function MorphApp() {
   );
 
   const arLink = taskId ? absoluteUrl(modelUrls(taskId).arPage) : "";
-  const currentModel = models.find((model) => model.id === taskId);
 
   const copyLink = async () => {
     if (!arLink) {
@@ -963,6 +1036,35 @@ export default function MorphApp() {
           <div className="upload-content">
             {sources.length === 0 ? (
               <>
+                <div className="manual-model-card">
+                  <span className="manual-model-icon" aria-hidden="true">
+                    <Box />
+                  </span>
+                  <div>
+                    <SectionLabel>ШУУД AR ТУРШИЛТ</SectionLabel>
+                    <h2>Бэлэн 3D загвар байна уу?</h2>
+                    <p>
+                      GLB файлаа оруулаад шууд 3D-аар үзэж, QR кодоор утсандаа
+                      нээгээд AR-аар байрлуулаарай. iPhone-д USDZ файлыг хамт
+                      сонговол хамгийн найдвартай.
+                    </p>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={() => manualModelInput.current?.click()}
+                    disabled={manualUploading}
+                  >
+                    {manualUploading ? (
+                      <Loader2 size={17} className="spin" />
+                    ) : (
+                      <Upload size={17} />
+                    )}
+                    {manualUploading ? "Оруулж байна…" : "3D файл оруулах"}
+                  </Button>
+                </div>
+                <div className="upload-method-divider">
+                  <span>ЭСВЭЛ ЗУРГААС 3D ҮҮСГЭХ</span>
+                </div>
                 <h1>Зургаа энд оруулна уу</h1>
                 <p>
                   Нэг объект тод харагдсан, цэвэр дэвсгэртэй зураг ашиглавал
@@ -1201,6 +1303,14 @@ export default function MorphApp() {
           accept="image/png,image/jpeg,image/webp"
           onChange={handleFile}
         />
+        <input
+          ref={manualModelInput}
+          className="sr-only"
+          type="file"
+          multiple
+          accept=".glb,.usdz,model/gltf-binary,model/vnd.usdz+zip"
+          onChange={(event) => void handleManualModel(event)}
+        />
       </div>
     );
   };
@@ -1341,7 +1451,9 @@ export default function MorphApp() {
             <span>
               <b>{currentModel?.name ?? "3D загвар"}</b>
               <small>
-                {currentModel?.sourceCount && currentModel.sourceCount > 1
+                {isManualModel
+                  ? "ГАРААР ОРУУЛСАН · AR-Д БЭЛЭН"
+                  : currentModel?.sourceCount && currentModel.sourceCount > 1
                   ? `${currentModel.sourceCount} ЗУРАГНААС · MULTI-IMAGE`
                   : "MESHY AI · IMAGE TO 3D"}
               </small>
@@ -1363,12 +1475,14 @@ export default function MorphApp() {
                   <a href={urls.glbDownload} onClick={() => setDownloadOpen(false)}>
                     GLB · WEB / ANDROID
                   </a>
-                  <a
-                    href={urls.usdzDownload}
-                    onClick={() => setDownloadOpen(false)}
-                  >
-                    USDZ · iOS / AR
-                  </a>
+                  {(!isManualModel || currentModel?.hasUsdz) && (
+                    <a
+                      href={urls.usdzDownload}
+                      onClick={() => setDownloadOpen(false)}
+                    >
+                      USDZ · iOS / AR
+                    </a>
+                  )}
                 </span>
               )}
             </span>
@@ -1384,8 +1498,8 @@ export default function MorphApp() {
               <ModelViewer
                 ref={viewerRef}
                 src={urls.glb}
-                iosSrc={urls.usdz}
-                poster={urls.poster}
+                iosSrc={!isManualModel || currentModel?.hasUsdz ? urls.usdz : undefined}
+                poster={isManualModel ? undefined : urls.poster}
                 alt="Үүсгэсэн 3D загвар"
                 ar
                 autoRotate={autoRotate}
@@ -1404,14 +1518,20 @@ export default function MorphApp() {
               />
             )}
             <span className="viewport-label">
-              {modelReady ? "MESHY AI · GLB" : "ЖИШЭЭ ЗАГВАР"}
+              {modelReady
+                ? isManualModel
+                  ? "ГАРААР ОРУУЛСАН · GLB"
+                  : "MESHY AI · GLB"
+                : "ЖИШЭЭ ЗАГВАР"}
             </span>
             <span className="viewport-dimensions">
               {modelReady
-                ? `${(task?.creditsUsed ?? 0).toLocaleString()} CREDIT`
+                ? isManualModel
+                  ? "ШУУД UPLOAD"
+                  : `${(task?.creditsUsed ?? 0).toLocaleString()} CREDIT`
                 : "ЗАГВАР СОНГООГҮЙ"}
               <br />
-              GLB · USDZ
+              GLB{!isManualModel || currentModel?.hasUsdz ? " · USDZ" : ""}
             </span>
             <div className="viewport-tools">
               <button className="active" aria-label="Эргүүлэх">
@@ -1623,8 +1743,8 @@ export default function MorphApp() {
               <ModelViewer
                 ref={viewerRef}
                 src={urls.glb}
-                iosSrc={urls.usdz}
-                poster={urls.poster}
+                iosSrc={!isManualModel || currentModel?.hasUsdz ? urls.usdz : undefined}
+                poster={isManualModel ? undefined : urls.poster}
                 alt="AR-д бэлэн 3D загвар"
                 ar
                 arScale="auto"
@@ -1671,24 +1791,26 @@ export default function MorphApp() {
               </Button>
             )}
 
-            <div className="qr-row">
-              {arLink ? (
-                <QrCode value={arLink} size={228} />
-              ) : (
-                <div className="qr-empty">Эхлээд загвар үүсгэнэ үү</div>
-              )}
-              <div className="qr-steps">
-                <span>
-                  <b>01</b>QR кодыг уншуулна
-                </span>
-                <span>
-                  <b>02</b>Камер ашиглах зөвшөөрөл өгнө
-                </span>
-                <span>
-                  <b>03</b>Загвар байрлуулах гадаргуугаа сонгоно
-                </span>
+            {platform === "desktop" && (
+              <div className="qr-row">
+                {arLink ? (
+                  <QrCode value={arLink} size={228} />
+                ) : (
+                  <div className="qr-empty">Эхлээд загвар үүсгэнэ үү</div>
+                )}
+                <div className="qr-steps">
+                  <span>
+                    <b>01</b>QR кодыг уншуулна
+                  </span>
+                  <span>
+                    <b>02</b>Камер ашиглах зөвшөөрөл өгнө
+                  </span>
+                  <span>
+                    <b>03</b>Загвар байрлуулах гадаргуугаа сонгоно
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
             {/* shareLink нь дэмждэггүй хөтөч дээр автоматаар copyLink рүү
                 шилждэг тул тусад нь "хуулах" товч шаардлагагүй. */}
             <div className="ar-actions">
@@ -1791,7 +1913,7 @@ export default function MorphApp() {
                     <span className="model-grid-bg" />
                     {/* next/image ашиглахгүй: эх сурвалж нь Meshy proxy эсвэл
                         data: URI тул Worker-ийн зураг оновчлол хэрэггүй. */}
-                    {model.status === "SUCCEEDED" ? (
+                    {model.status === "SUCCEEDED" && model.kind !== "manual" ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={modelUrls(model.id).poster}
@@ -1813,7 +1935,9 @@ export default function MorphApp() {
                     <em className={model.status === "SUCCEEDED" ? "ready" : ""}>
                       {STATUS_LABEL[model.status]}
                     </em>
-                    <small>GLB · USDZ</small>
+                    <small>
+                      GLB{model.kind !== "manual" || model.hasUsdz ? " · USDZ" : ""}
+                    </small>
                   </button>
                   <div className="model-card-copy">
                     <span>
@@ -1860,8 +1984,8 @@ export default function MorphApp() {
               <ModelViewer
                 ref={viewerRef}
                 src={urls.glb}
-                iosSrc={urls.usdz}
-                poster={urls.poster}
+                iosSrc={!isManualModel || current?.hasUsdz ? urls.usdz : undefined}
+                poster={isManualModel ? undefined : urls.poster}
                 alt="3D загвар"
                 ar
                 autoRotate
@@ -1883,7 +2007,11 @@ export default function MorphApp() {
               {modelReady ? "БЭЛЭН · 3D ЗАГВАР" : "БОЛОВСРУУЛЖ БАЙНА"}
             </SectionLabel>
             <h1>{current?.name ?? "3D загвар"}</h1>
-            <p>Нэг зургаас Meshy AI-аар үүсгэсэн, AR-д бэлэн 3D загвар.</p>
+            <p>
+              {isManualModel
+                ? "Гараар оруулсан, web болон утасны AR-д бэлэн 3D загвар."
+                : "Нэг зургаас Meshy AI-аар үүсгэсэн, AR-д бэлэн 3D загвар."}
+            </p>
             <div className="detail-actions">
               <Button onClick={() => go("studio")} disabled={!modelReady}>
                 <WandSparkles size={16} /> Студид нээх
@@ -1898,7 +2026,8 @@ export default function MorphApp() {
             </div>
             <div className="detail-specs">
               <span>
-                <b>ФОРМАТ</b>GLB · USDZ
+                <b>ФОРМАТ</b>
+                GLB{!isManualModel || current?.hasUsdz ? " · USDZ" : ""}
               </span>
               <span>
                 <b>ЧАНАР</b>
@@ -1906,7 +2035,7 @@ export default function MorphApp() {
               </span>
               <span>
                 <b>КРЕДИТ</b>
-                {task?.creditsUsed ?? "—"}
+                {isManualModel ? "0" : (task?.creditsUsed ?? "—")}
               </span>
               <span>
                 <b>ҮҮССЭН</b>
