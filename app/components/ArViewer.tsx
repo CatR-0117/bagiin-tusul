@@ -90,7 +90,7 @@ export default function ArViewer({
           <span className="brand-mark" aria-hidden="true">
             <span />
           </span>
-          MORPH AR
+          SnapAR
         </Link>
         <span className="ar-standalone-format">GLB · USDZ</span>
       </header>

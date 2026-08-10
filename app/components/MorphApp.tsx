@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import {
   ArrowLeft,
   ArrowRight,
@@ -9,7 +10,6 @@ import {
   Copy,
   Download,
   Grid2X2,
-  Layers3,
   Menu,
   MoreHorizontal,
   Move3D,
@@ -34,9 +34,16 @@ import {
   useRef,
   useState,
 } from "react";
-import VaseScene from "./VaseScene";
+import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import ModelViewer, { type ModelViewerHandle } from "./ModelViewer";
 import QrCode from "./QrCode";
+import SnapLanding from "./SnapLanding";
+import { motionTokens } from "./motion-tokens";
+
+const VaseScene = dynamic(() => import("./VaseScene"), {
+  ssr: false,
+  loading: () => <div className="vase-canvas canvas-loading" aria-hidden="true" />,
+});
 import type { PublicTask } from "@/lib/meshy";
 import {
   absoluteUrl,
@@ -127,7 +134,7 @@ const STATUS_LABEL: Record<StoredModel["status"], string> = {
   CANCELED: "ЦУЦАЛСАН",
 };
 
-const BASE_TITLE = "MORPH AR — Нэг зургаас шинэ хэмжээс рүү";
+const BASE_TITLE = "SnapAR — From one image to 3D, then AR";
 
 /**
  * Таб ар талд байхад системийн мэдэгдэл харуулах.
@@ -201,7 +208,7 @@ function Brand({ compact = false }: { compact?: boolean }) {
       <span className="brand-mark" aria-hidden="true">
         <span />
       </span>
-      <span>MORPH AR</span>
+      <span>SnapAR</span>
     </span>
   );
 }
@@ -496,8 +503,6 @@ function MiniVase({ color = "#e8e2d6" }: { color?: string }) {
 
 export default function MorphApp() {
   const [screen, setScreen] = useState<Screen>("landing");
-  const [heroProgress, setHeroProgress] = useState(0);
-  const [heroStage, setHeroStage] = useState(0);
   const [navOpen, setNavOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [advanced, setAdvanced] = useState(false);
@@ -672,14 +677,14 @@ export default function MorphApp() {
         if (next.status === "SUCCEEDED") {
           if (onGenerateScreen) {
             addToast("3D загвар бэлэн болсон");
-            notifyDone("3D загвар бэлэн боллоо", "MORPH AR");
+            notifyDone("3D загвар бэлэн боллоо", "SnapAR");
             setScreen("studio");
           }
         } else if (next.status === "FAILED" || next.status === "CANCELED") {
           setGenError(next.error ?? "Үүсгэлт амжилтгүй боллоо.");
           if (onGenerateScreen) {
             addToast("Үүсгэлт амжилтгүй боллоо");
-            notifyDone("Үүсгэлт амжилтгүй боллоо", "MORPH AR");
+            notifyDone("Үүсгэлт амжилтгүй боллоо", "SnapAR");
             setScreen("upload");
           }
         }
@@ -715,19 +720,6 @@ export default function MorphApp() {
       document.title = BASE_TITLE;
     };
   }, [task]);
-
-  useEffect(() => {
-    if (screen !== "landing") return;
-    let progress = 0;
-    const interval = window.setInterval(() => {
-      progress += 0.018;
-      if (progress > 1.32) progress = 0;
-      const visibleProgress = Math.min(1, progress);
-      setHeroProgress(visibleProgress);
-      setHeroStage(visibleProgress < 0.3 ? 0 : visibleProgress < 0.72 ? 1 : 2);
-    }, 60);
-    return () => window.clearInterval(interval);
-  }, [screen]);
 
   /* --------------------------- эх зурагтай ажиллах -------------------------- */
 
@@ -916,7 +908,7 @@ export default function MorphApp() {
     if (typeof navigator.share === "function") {
       try {
         await navigator.share({
-          title: currentModel?.name ?? "MORPH AR загвар",
+          title: currentModel?.name ?? "SnapAR model",
           text: "Энэ 3D загварыг утсаараа AR-аар хараарай:",
           url: arLink,
         });
@@ -950,174 +942,7 @@ export default function MorphApp() {
   };
 
   const renderLanding = () => (
-    <div className="landing page-enter">
-      <SiteHeader
-        screen={screen}
-        go={go}
-        balance={balance}
-        onOpenMenu={() => setNavOpen(true)}
-        variant="landing"
-      />
-
-      <main>
-        <section className="hero-section">
-          <div className="hero-grid" />
-          <div className="hero-copy">
-            <SectionLabel>
-              <span className="live-dot" /> AI · 2D → 3D · AR
-            </SectionLabel>
-            <h1>
-              Нэг зургаас
-              <br />
-              шинэ хэмжээс
-              <br />
-              <em>рүү.</em>
-            </h1>
-            <p>
-              Зургаа оруулж интерактив 3D загвар үүсгээд, бодит орчиндоо AR-аар
-              байрлуулаарай.
-            </p>
-            {/* Ганц үндсэн үйлдэл. "Миний загварууд" толгойн цэсэнд байгаа
-                тул энд давхардуулахгүй. */}
-            <div className="hero-actions">
-              <Button onClick={() => go("upload")}>
-                3D загвар үүсгэх <ArrowRight size={17} />
-              </Button>
-            </div>
-            <div className="hero-meta">
-              <span>GLB · USDZ</span>
-              <span>≈ 40 СЕК</span>
-              <span>AR-Д БЭЛЭН</span>
-            </div>
-          </div>
-          <div className="hero-visual">
-            <div className="hero-stage">
-              <CornerFrame />
-              <span className="scan-line" />
-              <VaseScene
-                className="vase-canvas hero-vase-canvas"
-                color="#e8e2d6"
-                progress={heroProgress}
-                distance={4.5}
-                cameraY={0.95}
-              />
-              <span className={`stage-label stage-label-${heroStage}`}>
-                <i />
-                {
-                  [
-                    "ЗУРАГ ШИНЖИЛЖ БАЙНА",
-                    "MESH БАЙГУУЛЖ БАЙНА",
-                    "3D ЗАГВАР БЭЛЭН",
-                  ][heroStage]
-                }
-              </span>
-              <span className="stage-coordinates">
-                X 0.42
-                <br />Y 1.76
-                <br />Z 0.42
-              </span>
-              <span className="height-scale">
-                <i />
-                176 MM
-              </span>
-            </div>
-            {/* Эх зураг → 3D загвар гэдгийг харуулах "полароид" карт.
-                Утсан дээр талбай багатай тул тайзны доод зүүн буланд
-                орж, холбоос шугам нь ваар руу заана. */}
-            <figure className="source-card">
-              <div className="source-thumb">
-                {/* Тайзан дээрх ЯГ ТЭР 3D загвар — ижил геометр, материал,
-                    гэрэлтүүлэг. Зөвхөн нэг кадр зураад зогсоно. */}
-                <VaseScene
-                  className="source-vase"
-                  color="#e8e2d6"
-                  compact
-                  still
-                  interactive={false}
-                  autoRotate={false}
-                  distance={4.05}
-                  cameraY={0.9}
-                  label="Эх зураг — ваар"
-                />
-                <span className="source-ticks" aria-hidden="true">
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                </span>
-                <em>1024²</em>
-              </div>
-              <figcaption>
-                <b>ЭХ ЗУРАГ</b>
-                <span>
-                  ВААР · JPG <i>✓</i>
-                </span>
-              </figcaption>
-            </figure>
-          </div>
-        </section>
-
-        {/*
-          Энэ хэсэг нь ажлын урсгалыг ТАЙЛБАРЛАНА, навигац биш.
-          Өмнө нь гурван товч байсан бөгөөд 02, 03 хоёул "models" руу очдог
-          байсан — хэрэглэгчид өөр өөр газар руу орох мэт харагдаж байсан ч
-          үнэндээ ижил дэлгэц нээгддэг байв. Одоо энгийн жагсаалт.
-        */}
-        <ol className="process-section">
-          {["Зургаа оруулах", "3D загвар үүсгэх", "AR-аар харах"].map(
-            (item, index) => (
-              <li key={item}>
-                <span>0{index + 1}</span>
-                <b>{item}</b>
-              </li>
-            ),
-          )}
-        </ol>
-
-        <section className="use-cases-section">
-          <div>
-            <SectionLabel>НЭГ ЗУРАГ · ОЛОН БОЛОМЖ</SectionLabel>
-            <h2>
-              Дижитал объектыг
-              <br />
-              бодит мэт мэдэр.
-            </h2>
-          </div>
-          <div className="use-case-grid">
-            <article>
-              <Layers3 />
-              <b>Цахим худалдаа</b>
-              <p>Бүтээгдэхүүнээ хэрэглэгчийн орчинд үзүүл.</p>
-            </article>
-            <article>
-              <Sparkles />
-              <b>Контент бүтээл</b>
-              <p>Хөдөлгөөнт 3D контентоо хялбар үүсгэ.</p>
-            </article>
-            <article>
-              <Smartphone />
-              <b>AR туршлага</b>
-              <p>Апп суулгахгүйгээр камераар байрлуул.</p>
-            </article>
-          </div>
-        </section>
-
-        <section className="landing-cta">
-          <h2>
-            Өөрийн 3D загварыг
-            <br />
-            одоо үүсгээрэй.
-          </h2>
-          <Button variant="lime" onClick={() => go("upload")}>
-            Үүсгэж эхлэх <ArrowRight size={18} />
-          </Button>
-        </section>
-      </main>
-      <footer className="site-footer">
-        <span>MORPH AR · 2026</span>
-        <span>НӨХЦӨЛ · НУУЦЛАЛ · ХОЛБОО БАРИХ</span>
-      </footer>
-    </div>
+    <SnapLanding onCreate={() => go("upload")} onModels={() => go("models")} />
   );
 
   const renderUpload = () => {
@@ -1196,11 +1021,13 @@ export default function MorphApp() {
                   <div className="image-preview">
                     <CornerFrame />
                     {active && (
-                      <div
+                      <motion.div
+                        layoutId="snapar-subject"
                         className="uploaded-image"
                         role="img"
                         aria-label={`Оруулсан зураг: ${active.name}`}
                         style={{ backgroundImage: `url(${active.preview})` }}
+                        transition={motionTokens.spring.gentle}
                       />
                     )}
                     <span className="preview-meta">{active?.name}</span>
@@ -1380,10 +1207,11 @@ export default function MorphApp() {
 
   const renderGenerate = () => {
     const stages = [
-      ["Зургийг шинжилж байна", 0, 26],
-      ["3D хэлбэр байгуулж байна", 26, 58],
-      ["Материал үүсгэж байна", 58, 84],
-      ["AR-д тохируулж байна", 84, 100],
+      ["Analyzing image", 0, 18],
+      ["Removing background", 18, 34],
+      ["Building geometry", 34, 62],
+      ["Applying texture", 62, 84],
+      ["Preparing AR model", 84, 100],
     ] as const;
     return (
       <div className="generation-screen page-enter">
@@ -1391,18 +1219,20 @@ export default function MorphApp() {
           <button className="header-brand" onClick={() => go("landing")}>
             <Brand compact />
           </button>
-          <span>AI PROCESS · MORPH ENGINE 2.4</span>
+          <span>AI PROCESS · SNAP ENGINE</span>
         </header>
         <main>
           <div className="generation-preview">
             <CornerFrame />
             <span className="scan-line" />
             {sources[0] ? (
-              <div
+              <motion.div
+                layoutId="snapar-subject"
                 className="generation-source"
                 role="img"
                 aria-label="Эх зураг"
                 style={{ backgroundImage: `url(${sources[0].preview})` }}
+                transition={motionTokens.spring.gentle}
               />
             ) : (
               <VaseScene
@@ -1418,16 +1248,16 @@ export default function MorphApp() {
           </div>
           <div className="generation-info">
             <SectionLabel>
-              {task?.status === "PENDING" ? "ДАРААЛАЛД БАЙНА" : "ТҮР ХҮЛЭЭНЭ ҮҮ"}
+              {task?.status === "PENDING" ? "IN QUEUE" : "AI GENERATION IN PROGRESS"}
             </SectionLabel>
             <h1>
-              3D загвар
+              Creating your
               <br />
-              үүсгэж байна.
+              3D model.
             </h1>
             <p>
-              Meshy AI зургийн хэлбэр, материал, гүнийг тооцоолж байна. Энэ
-              хуудсыг хаасан ч үүсгэлт үргэлжилнэ.
+              AI is reconstructing shape, material, and depth from your image.
+              Generation continues safely if you leave this screen.
             </p>
 
             {/* Meshy-гээс ирсэн бодит дарааллын байрлал / үлдсэн хугацаа */}
@@ -1475,7 +1305,7 @@ export default function MorphApp() {
             </div>
             {genError && <p className="form-error">{genError}</p>}
             <button className="cancel-generation" onClick={() => go("upload")}>
-              Буцах (үүсгэлт цаанаа үргэлжилнэ)
+              Back to upload (generation will continue)
             </button>
           </div>
         </main>
@@ -2265,7 +2095,23 @@ export default function MorphApp() {
 
   return (
     <div className={`morph-app ${showTabs ? "with-tabs" : ""}`}>
-      {screenContent[screen]()}
+      <LayoutGroup id="snapar-flow">
+        <AnimatePresence mode="sync" initial={false}>
+          <motion.div
+            key={screen}
+            className="screen-motion-shell"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{
+              duration: motionTokens.duration.base,
+              ease: motionTokens.ease.standard,
+            }}
+          >
+            {screenContent[screen]()}
+          </motion.div>
+        </AnimatePresence>
+      </LayoutGroup>
       {showTabs && (
         <MobileTabs
           screen={screen}
