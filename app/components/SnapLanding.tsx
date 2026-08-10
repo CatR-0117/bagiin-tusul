@@ -130,6 +130,10 @@ function phaseFor(progress: number) {
   return 4;
 }
 
+function rangeProgress(value: number, start: number, end: number) {
+  return Math.max(0, Math.min(1, (value - start) / (end - start)));
+}
+
 function SnapMark() {
   return (
     <span className="snap-brand-mark" aria-hidden="true">
@@ -160,14 +164,43 @@ function HeroStory({ onCreate }: { onCreate: () => void }) {
       const timelineProgress = { value: 0 };
 
       const context = gsap.context(() => {
-        gsap.to(timelineProgress, {
-          value: 1,
-          duration: 10,
+        const storyTimeline = gsap.timeline({ repeat: -1, repeatDelay: 0.15 });
+
+        storyTimeline
+          .set(".snap-story-portal", { autoAlpha: 0, scale: 0.82 })
+          .set(timelineProgress, { value: 0 })
+          .to(timelineProgress, {
+            value: 1,
+            duration: 13.4,
+            ease: "none",
+            onUpdate: () => setProgress(timelineProgress.value),
+          })
+          .to(
+            ".snap-story-portal",
+            {
+              autoAlpha: 1,
+              scale: 1,
+              duration: 0.72,
+              ease: "power3.inOut",
+            },
+            "-=0.58",
+          )
+          .call(() => {
+            timelineProgress.value = 0;
+            setProgress(0);
+          })
+          .to(".snap-story-portal", {
+            autoAlpha: 0,
+            scale: 1.18,
+            duration: 0.82,
+            ease: "power3.out",
+          });
+
+        gsap.to(".snap-story-glow", {
+          rotation: 360,
+          duration: 26,
           repeat: -1,
-          repeatDelay: 0.6,
-          yoyo: true,
-          ease: "sine.inOut",
-          onUpdate: () => setProgress(timelineProgress.value),
+          ease: "none",
         });
       }, storyRef);
 
@@ -181,24 +214,31 @@ function HeroStory({ onCreate }: { onCreate: () => void }) {
   }, [reduceMotion]);
 
   const meshProgress =
-    activeProgress < 0.39
+    activeProgress < 0.31
       ? 0.04
-      : activeProgress < 0.67
-        ? Math.min(1, (activeProgress - 0.39) / 0.28)
+      : activeProgress < 0.64
+        ? rangeProgress(activeProgress, 0.31, 0.64)
         : 1;
-  const flatOpacity = Math.max(0, Math.min(1, (0.49 - activeProgress) / 0.1));
-  const modelOpacity = Math.max(0, Math.min(1, (activeProgress - 0.35) / 0.12));
-  const arAmount = Math.max(0, Math.min(1, (activeProgress - 0.78) / 0.18));
-  const viewerAmount = Math.max(
-    0,
-    Math.min(1, (activeProgress - 0.62) / 0.12) * (1 - arAmount),
-  );
+  const flatOpacity = 1 - rangeProgress(activeProgress, 0.25, 0.38);
+  const modelOpacity = rangeProgress(activeProgress, 0.27, 0.42);
+  const arAmount = rangeProgress(activeProgress, 0.77, 0.94);
+  const viewerAmount = rangeProgress(activeProgress, 0.59, 0.71) * (1 - arAmount);
+  const spatialAmount = rangeProgress(activeProgress, 0.28, 0.46) * (1 - arAmount);
+  const orbit = activeProgress * Math.PI * 2;
   const style = {
     "--story-progress": activeProgress,
     "--flat-opacity": flatOpacity,
     "--model-opacity": modelOpacity,
     "--viewer-opacity": viewerAmount,
     "--ar-opacity": arAmount,
+    "--spatial-opacity": spatialAmount,
+    "--orbit-x": `${Math.sin(orbit) * 3.2}deg`,
+    "--orbit-y": `${Math.cos(orbit * 0.78) * 1.35}deg`,
+    "--scene-lift": `${Math.sin(orbit * 1.25) * -6}px`,
+    "--parallax-x": `${Math.sin(orbit) * 14}px`,
+    "--ar-lift": `${arAmount * 40}px`,
+    "--model-scale": 1 - arAmount * 0.12,
+    "--story-percent": `${activeProgress * 100}%`,
   } as CSSProperties;
 
   return (
@@ -270,6 +310,14 @@ function HeroStory({ onCreate }: { onCreate: () => void }) {
 
               <div className="snap-ar-environment" aria-hidden="true" />
 
+              <div className="snap-spatial-field" aria-hidden="true">
+                <span className="snap-orbit-ring snap-orbit-ring-one" />
+                <span className="snap-orbit-ring snap-orbit-ring-two" />
+                <div className="snap-depth-constellation">
+                  {Array.from({ length: 9 }, (_, index) => <i key={index} />)}
+                </div>
+              </div>
+
               <div className="snap-model-object" aria-hidden={modelOpacity < 0.1}>
                 <VaseScene
                   className="snap-story-canvas"
@@ -287,6 +335,7 @@ function HeroStory({ onCreate }: { onCreate: () => void }) {
 
               <div className="snap-scan-overlay" aria-hidden="true">
                 <span className="snap-scan-beam" />
+                <span className="snap-scan-column" />
                 <div className="snap-analysis-pills">
                   <span><Check size={11} /> Analyzing image</span>
                   <span><Check size={11} /> Removing background</span>
@@ -322,9 +371,16 @@ function HeroStory({ onCreate }: { onCreate: () => void }) {
                   <span />
                 </div>
               </div>
+
+              <div className="snap-story-portal" aria-hidden="true">
+                <span className="snap-portal-rings"><i /><i /></span>
+                <SnapMark />
+                <b>SPATIAL ASSET READY</b>
+              </div>
             </div>
 
             <div className="snap-story-progress" aria-label={`Story step ${phase + 1} of 5`}>
+              <span className="snap-progress-energy" aria-hidden="true"><i /></span>
               {heroSteps.map((step, index) => (
                 <span
                   key={step.label}

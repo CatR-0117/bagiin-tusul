@@ -369,8 +369,11 @@ a:focus-visible {
   bottom: 12%;
   left: 8%;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(110, 84, 247, .18), transparent 67%);
+  background:
+    conic-gradient(from 40deg, rgba(110,84,247,.02), rgba(110,84,247,.2), rgba(68,203,214,.17), rgba(110,84,247,.02) 78%),
+    radial-gradient(circle, rgba(110, 84, 247, .15), transparent 67%);
   filter: blur(34px);
+  will-change: transform;
   pointer-events: none;
 }
 
@@ -386,8 +389,10 @@ a:focus-visible {
     radial-gradient(circle at 50% 32%, rgba(255,255,255,.96), rgba(246,247,254,.82) 52%, rgba(238,241,249,.92)),
     #f4f5fa;
   box-shadow: var(--snap-shadow), inset 0 1px 0 white;
-  transform: perspective(1200px) rotateY(calc((.5 - var(--story-progress)) * 2deg));
+  transform: perspective(1200px) rotateX(var(--orbit-y)) rotateY(var(--orbit-x)) translate3d(0, var(--scene-lift), 0);
+  transform-style: preserve-3d;
   transition: border-radius 360ms cubic-bezier(.22,1,.36,1);
+  will-change: transform;
 }
 
 .snap-story-shell::before {
@@ -401,6 +406,21 @@ a:focus-visible {
   content: "";
   opacity: calc(.2 + var(--viewer-opacity));
   mask-image: linear-gradient(to bottom, black, transparent 92%);
+}
+
+.snap-story-shell::after {
+  position: absolute;
+  z-index: 4;
+  top: 51px;
+  bottom: 0;
+  left: calc(var(--story-percent) - 24%);
+  width: 28%;
+  transform: skewX(-9deg);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.46), rgba(112,93,255,.07), transparent);
+  content: "";
+  opacity: calc(.18 + var(--spatial-opacity) * .5);
+  filter: blur(7px);
+  pointer-events: none;
 }
 
 .snap-stage-topline {
@@ -532,7 +552,9 @@ a:focus-visible {
   z-index: 6;
   inset: 8% 8% 3%;
   opacity: var(--model-opacity);
-  transform: translateY(calc(var(--ar-opacity) * 40px)) scale(calc(1 - var(--ar-opacity) * .12));
+  transform: translate3d(var(--parallax-x), calc(var(--scene-lift) + var(--ar-lift)), 0) scale(var(--model-scale));
+  transform-origin: 50% 72%;
+  will-change: transform, opacity;
 }
 
 .snap-ar-environment {
@@ -542,12 +564,82 @@ a:focus-visible {
   background-image:
     linear-gradient(180deg, rgba(245, 248, 252, .04), rgba(231, 221, 210, .12)),
     url("/ar-room.png");
-  background-position: center;
+  background-position: calc(50% + var(--parallax-x)) center;
   background-size: cover;
   opacity: var(--ar-opacity);
   transition: opacity 180ms linear;
   pointer-events: none;
 }
+
+.snap-spatial-field {
+  position: absolute;
+  z-index: 5;
+  inset: 51px 0 0;
+  overflow: hidden;
+  opacity: var(--spatial-opacity);
+  pointer-events: none;
+}
+
+.snap-orbit-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) rotateX(67deg);
+  border: 1px solid rgba(110,84,247,.28);
+  border-radius: 50%;
+  box-shadow: 0 0 26px rgba(110,84,247,.06), inset 0 0 24px rgba(68,203,214,.05);
+}
+
+.snap-orbit-ring::after {
+  position: absolute;
+  top: 50%;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--snap-cyan);
+  box-shadow: 0 0 16px rgba(68,203,214,.8);
+  content: "";
+}
+
+.snap-orbit-ring-one {
+  width: 65%;
+  animation: snap-orbit 7s linear infinite;
+}
+
+.snap-orbit-ring-two {
+  width: 84%;
+  border-style: dashed;
+  opacity: .58;
+  animation: snap-orbit-reverse 11s linear infinite;
+}
+
+.snap-depth-constellation {
+  position: absolute;
+  inset: 0;
+}
+
+.snap-depth-constellation i {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--snap-violet);
+  box-shadow: 0 0 0 4px rgba(110,84,247,.08), 0 0 12px rgba(110,84,247,.35);
+  animation: snap-particle-drift 3.8s ease-in-out infinite;
+}
+
+.snap-depth-constellation i:nth-child(1) { top: 18%; left: 18%; animation-delay: -.4s; }
+.snap-depth-constellation i:nth-child(2) { top: 29%; right: 16%; animation-delay: -1.8s; }
+.snap-depth-constellation i:nth-child(3) { top: 48%; left: 12%; animation-delay: -2.4s; }
+.snap-depth-constellation i:nth-child(4) { top: 63%; right: 19%; animation-delay: -.9s; }
+.snap-depth-constellation i:nth-child(5) { right: 31%; bottom: 12%; animation-delay: -3s; }
+.snap-depth-constellation i:nth-child(6) { bottom: 17%; left: 27%; animation-delay: -1.3s; }
+.snap-depth-constellation i:nth-child(7) { top: 15%; left: 43%; animation-delay: -2.1s; }
+.snap-depth-constellation i:nth-child(8) { top: 40%; right: 33%; animation-delay: -.2s; }
+.snap-depth-constellation i:nth-child(9) { bottom: 34%; left: 34%; animation-delay: -2.8s; }
 
 .snap-object-shadow,
 .snap-ar-contact {
@@ -585,6 +677,17 @@ a:focus-visible {
   background: linear-gradient(90deg, transparent, var(--snap-violet) 20%, var(--snap-cyan) 80%, transparent);
   box-shadow: 0 16px 38px 14px rgba(110,84,247,.12);
   animation: snap-scan 2.3s cubic-bezier(.45,0,.55,1) infinite;
+}
+
+.snap-scan-column {
+  position: absolute;
+  top: 6%;
+  bottom: 5%;
+  left: 16%;
+  width: 1px;
+  background: linear-gradient(transparent, rgba(68,203,214,.7), transparent);
+  box-shadow: 14px 0 32px 5px rgba(68,203,214,.1);
+  animation: snap-scan-column 3.1s cubic-bezier(.45,0,.55,1) infinite;
 }
 
 .snap-analysis-pills {
@@ -825,6 +928,86 @@ a:focus-visible {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
 }
+
+.snap-progress-energy {
+  position: absolute;
+  z-index: 3;
+  top: -1px;
+  left: 0;
+  width: var(--story-percent);
+  height: 2px;
+  background: linear-gradient(90deg, var(--snap-violet), var(--snap-cyan));
+  box-shadow: 0 0 12px rgba(68,203,214,.24);
+  pointer-events: none;
+}
+
+.snap-story-progress .snap-progress-energy i {
+  position: absolute;
+  top: 50%;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  transform: translateY(-50%);
+  border: 2px solid white;
+  border-radius: 50%;
+  background: var(--snap-cyan);
+  box-shadow: 0 0 0 5px rgba(68,203,214,.13), 0 0 14px rgba(68,203,214,.5);
+}
+
+.snap-story-portal {
+  position: absolute;
+  z-index: 40;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  place-items: center;
+  gap: 14px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at center, rgba(255,255,255,.98) 0 15%, rgba(240,237,255,.94) 38%, rgba(221,248,249,.96) 68%, rgba(255,255,255,.98));
+  opacity: 0;
+  transform: scale(.82);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.snap-story-portal > .snap-brand-mark {
+  z-index: 2;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  box-shadow: 0 10px 35px rgba(110,84,247,.34);
+}
+
+.snap-story-portal > b {
+  z-index: 2;
+  color: var(--snap-violet);
+  font-size: 8px;
+  letter-spacing: .18em;
+}
+
+.snap-portal-rings,
+.snap-portal-rings::before,
+.snap-portal-rings::after,
+.snap-portal-rings i {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(110,84,247,.18);
+  border-radius: 50%;
+}
+
+.snap-portal-rings {
+  width: 25%;
+  animation: snap-portal-pulse 1.8s ease-out infinite;
+}
+
+.snap-portal-rings::before { width: 190%; content: ""; }
+.snap-portal-rings::after { width: 310%; content: ""; }
+.snap-portal-rings i:first-child { width: 430%; }
+.snap-portal-rings i:last-child { width: 560%; }
 
 .snap-story-step {
   position: relative;
@@ -1282,6 +1465,8 @@ a:focus-visible {
   border-radius: 48px;
   background: white;
   box-shadow: 0 34px 70px rgba(30,42,82,.22);
+  animation: snap-phone-float 6.4s ease-in-out infinite;
+  will-change: transform;
 }
 
 .snap-ar-phone::before {
@@ -1308,13 +1493,26 @@ a:focus-visible {
   background-size: cover;
 }
 
+.snap-ar-camera::after {
+  position: absolute;
+  z-index: 6;
+  inset: -30% -45%;
+  transform: translateX(-65%) rotate(12deg);
+  background: linear-gradient(90deg, transparent 43%, rgba(255,255,255,.25) 50%, transparent 57%);
+  content: "";
+  animation: snap-camera-sweep 7.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
 .snap-ar-vase {
   z-index: 3;
   top: 17%;
   bottom: -1%;
   height: auto;
   filter: drop-shadow(0 18px 14px rgba(55, 42, 37, .14));
-  animation: snap-place 900ms cubic-bezier(.18,.9,.28,1.16) both;
+  animation:
+    snap-place 900ms cubic-bezier(.18,.9,.28,1.16) both,
+    snap-vase-float 5.4s 1.05s ease-in-out infinite;
 }
 
 .snap-ar-phone .snap-reticle {
@@ -1334,6 +1532,7 @@ a:focus-visible {
   background: radial-gradient(ellipse, rgba(54, 42, 34, .4), transparent 72%);
   filter: blur(7px);
   opacity: .9;
+  animation: snap-shadow-breathe 5.4s 1.05s ease-in-out infinite;
 }
 
 .snap-camera-copy {
@@ -1981,6 +2180,31 @@ a:focus-visible {
   100% { transform: translateY(390px); opacity: 0; }
 }
 
+@keyframes snap-scan-column {
+  0% { transform: translateX(0); opacity: 0; }
+  14%, 86% { opacity: 1; }
+  100% { transform: translateX(460px); opacity: 0; }
+}
+
+@keyframes snap-orbit {
+  to { transform: translate(-50%, -50%) rotateX(67deg) rotateZ(360deg); }
+}
+
+@keyframes snap-orbit-reverse {
+  to { transform: translate(-50%, -50%) rotateX(67deg) rotateZ(-360deg); }
+}
+
+@keyframes snap-particle-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(.7); opacity: .38; }
+  50% { transform: translate3d(5px, -12px, 0) scale(1.25); opacity: 1; }
+}
+
+@keyframes snap-portal-pulse {
+  0% { transform: translate(-50%, -50%) scale(.72); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.16); opacity: 0; }
+}
+
 @keyframes snap-image-sheen {
   0%, 18% { transform: translateX(-90%); opacity: 0; }
   35% { opacity: 1; }
@@ -1995,6 +2219,27 @@ a:focus-visible {
 @keyframes snap-place {
   from { transform: translateY(-38px) scale(.9); opacity: 0; }
   to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes snap-phone-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-.35deg); }
+  50% { transform: translate3d(0, -10px, 0) rotate(.35deg); }
+}
+
+@keyframes snap-camera-sweep {
+  0%, 16% { transform: translateX(-65%) rotate(12deg); opacity: 0; }
+  28% { opacity: 1; }
+  52%, 100% { transform: translateX(65%) rotate(12deg); opacity: 0; }
+}
+
+@keyframes snap-vase-float {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(0, -6px, 0) scale(1.008); }
+}
+
+@keyframes snap-shadow-breathe {
+  0%, 100% { transform: translateX(-50%) scale(1); opacity: .9; }
+  50% { transform: translateX(-50%) scale(.88); opacity: .68; }
 }
 
 /* Responsive ---------------------------------------------------------------- */
