@@ -1636,6 +1636,11 @@ export default function MorphApp() {
                 className="vase-canvas"
                 color={vaseColor}
                 material={material}
+                autoRotate={false}
+                presentation="ar"
+                scale={0.8}
+                distance={4.4}
+                cameraY={0.72}
               />
             )}
             <span>1 : 1 · БОДИТ ХЭМЖЭЭ (AUTO-SIZE)</span>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 type VaseSceneProps = {
   color?: string;
@@ -15,6 +16,8 @@ type VaseSceneProps = {
   distance?: number;
   cameraY?: number;
   scale?: number;
+  /** AR жишээнд камер, сүүдэр, хэмжээг өрөөний шалтай нийцүүлнэ. */
+  presentation?: "studio" | "ar";
   /**
    * Зөвхөн нэг кадр зураад зогсоно (thumbnail-д).
    * Хөдөлгөөнгүй жижиг зургийн төлөө rAF-ыг тасралтгүй эргүүлэх нь
@@ -27,11 +30,49 @@ type VaseSceneProps = {
 };
 
 const materialPresets = {
-  ceramic: { roughness: 0.42, metalness: 0.02 },
-  metal: { roughness: 0.2, metalness: 0.95 },
-  wood: { roughness: 0.78, metalness: 0 },
-  plastic: { roughness: 0.5, metalness: 0.04 },
+  ceramic: { roughness: 0.3, metalness: 0.01, clearcoat: 0.46 },
+  metal: { roughness: 0.2, metalness: 0.95, clearcoat: 0.08 },
+  wood: { roughness: 0.72, metalness: 0, clearcoat: 0.04 },
+  plastic: { roughness: 0.42, metalness: 0.02, clearcoat: 0.3 },
 };
+
+/** Давтагддаг, маш зөөлөн керамик ширхэглэл. Сүлжээний texture шаарддаггүй. */
+function buildCeramicTexture(renderer: THREE.WebGLRenderer) {
+  const surface = document.createElement("canvas");
+  surface.width = 384;
+  surface.height = 384;
+  const context = surface.getContext("2d");
+  if (!context) return null;
+
+  context.fillStyle = "#f5f2ed";
+  context.fillRect(0, 0, surface.width, surface.height);
+
+  let seed = 1847;
+  const random = () => {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
+
+  for (let index = 0; index < 1050; index += 1) {
+    const x = random() * surface.width;
+    const y = random() * surface.height;
+    const radius = 0.28 + random() * 0.86;
+    const shade = 112 + Math.round(random() * 46);
+    context.beginPath();
+    context.fillStyle = `rgba(${shade}, ${shade - 5}, ${shade + 4}, ${0.045 + random() * 0.1})`;
+    context.arc(x, y, radius, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  const texture = new THREE.CanvasTexture(surface);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(2.4, 4.2);
+  texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  texture.needsUpdate = true;
+  return texture;
+}
 
 function buildVaseGeometry(detail: number) {
   const profile: Array<[number, number]> = [
@@ -70,6 +111,7 @@ export default function VaseScene({
   distance = 4.3,
   cameraY = 0.92,
   scale = 1,
+  presentation = "studio",
   still = false,
   interactive = true,
   label = "Эргүүлж харах боломжтой 3D ваар",
@@ -108,13 +150,23 @@ export default function VaseScene({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
+    renderer.toneMappingExposure = presentation === "ar" ? 1.02 : 1.08;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(compact ? 36 : 33, 1, 0.1, 100);
+    const camera = new THREE.PerspectiveCamera(
+      compact ? 36 : presentation === "ar" ? 37 : 33,
+      1,
+      0.1,
+      100,
+    );
     camera.position.set(0, cameraY, distance);
+
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const roomEnvironment = new RoomEnvironment();
+    const environmentTarget = pmrem.fromScene(roomEnvironment, 0.045);
+    scene.environment = environmentTarget.texture;
 
     const group = new THREE.Group();
     group.position.y = -0.86;
@@ -126,10 +178,23 @@ export default function VaseScene({
     geometry.computeVertexNormals();
 
     const initialSettings = settingsRef.current;
-    const solidMaterial = new THREE.MeshStandardMaterial({
+    const glazeWhite = new THREE.Color(0xffffff);
+    const ceramicTexture = buildCeramicTexture(renderer);
+    const solidMaterial = new THREE.MeshPhysicalMaterial({
       color: initialSettings.color,
       roughness: materialPresets[initialSettings.material].roughness,
       metalness: materialPresets[initialSettings.material].metalness,
+      clearcoat: materialPresets[initialSettings.material].clearcoat,
+      clearcoatRoughness: 0.24,
+      sheen: 0.16,
+      sheenRoughness: 0.62,
+      sheenColor: new THREE.Color(initialSettings.color).lerp(
+        glazeWhite,
+        0.45,
+      ),
+      map: initialSettings.material === "ceramic" ? ceramicTexture : null,
+      bumpMap: initialSettings.material === "ceramic" ? ceramicTexture : null,
+      bumpScale: 0.012,
       side: THREE.DoubleSide,
       transparent: true,
     });
@@ -137,6 +202,34 @@ export default function VaseScene({
     solid.castShadow = true;
     solid.receiveShadow = true;
     group.add(solid);
+
+    // Амсар, харанхуй дотор хэсэг, суурийн цагираг нь силуэтийг бодит болгоно.
+    const rimGeometry = new THREE.TorusGeometry(0.35, 0.028, 14, 72);
+    rimGeometry.rotateX(Math.PI / 2);
+    const rimMesh = new THREE.Mesh(rimGeometry, solidMaterial);
+    rimMesh.position.y = 1.755;
+    rimMesh.castShadow = true;
+    group.add(rimMesh);
+
+    const innerGeometry = new THREE.CircleGeometry(0.318, 64);
+    innerGeometry.rotateX(-Math.PI / 2);
+    const innerMaterial = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(initialSettings.color).multiplyScalar(0.22),
+      roughness: 0.82,
+      metalness: 0,
+      side: THREE.DoubleSide,
+      transparent: true,
+    });
+    const inner = new THREE.Mesh(innerGeometry, innerMaterial);
+    inner.position.y = 1.746;
+    group.add(inner);
+
+    const footGeometry = new THREE.TorusGeometry(0.292, 0.014, 10, 64);
+    footGeometry.rotateX(Math.PI / 2);
+    const foot = new THREE.Mesh(footGeometry, solidMaterial);
+    foot.position.y = 0.025;
+    foot.castShadow = true;
+    group.add(foot);
 
     const wireMaterial = new THREE.MeshBasicMaterial({
       color: 0x8068ff,
@@ -156,10 +249,13 @@ export default function VaseScene({
     const points = new THREE.Points(geometry, pointMaterial);
     group.add(points);
 
-    const ambient = new THREE.AmbientLight(0x9aa0c0, 0.5);
+    const ambient = new THREE.AmbientLight(0xdde4ee, 0.62);
     scene.add(ambient);
 
-    const keyLight = new THREE.DirectionalLight(0xfff6e8, 2.4);
+    const hemisphere = new THREE.HemisphereLight(0xfffbf5, 0x6f6259, 1.15);
+    scene.add(hemisphere);
+
+    const keyLight = new THREE.DirectionalLight(0xfff1dc, 3.15);
     const keyAngle = 0.4 * Math.PI * 1.6 - 0.25;
     keyLight.position.set(Math.cos(keyAngle) * 4.2, 4.4, Math.sin(keyAngle) * 4.2);
     keyLight.castShadow = true;
@@ -173,17 +269,17 @@ export default function VaseScene({
     keyLight.shadow.bias = -0.0012;
     scene.add(keyLight);
 
-    const rim = new THREE.DirectionalLight(0x8068ff, 2.2);
+    const rim = new THREE.DirectionalLight(0xb5a2ff, 0.9);
     rim.position.set(-3.4, 1.4, -2.6);
     scene.add(rim);
 
-    const fill = new THREE.DirectionalLight(0xc9ff63, 0.35);
+    const fill = new THREE.DirectionalLight(0xc9ddff, 1.05);
     fill.position.set(2.2, -1.2, 2.4);
     scene.add(fill);
 
     const floorMaterial = new THREE.ShadowMaterial({
       color: 0x000000,
-      opacity: 0.44,
+      opacity: presentation === "ar" ? 0.3 : 0.38,
     });
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), floorMaterial);
     floor.rotation.x = -Math.PI / 2;
@@ -272,11 +368,24 @@ export default function VaseScene({
 
       solidMaterial.color.set(settings.color);
       solidMaterial.metalness = preset.metalness;
+      solidMaterial.clearcoat = preset.clearcoat;
       solidMaterial.roughness =
         settings.roughness === undefined
           ? preset.roughness
           : THREE.MathUtils.clamp(settings.roughness / 100, 0.06, 1);
-      solidMaterial.needsUpdate = true;
+      const ceramic = settings.material === "ceramic";
+      solidMaterial.bumpScale = ceramic ? 0.012 : 0;
+      solidMaterial.sheen = ceramic ? 0.16 : 0;
+      solidMaterial.sheenColor
+        .set(settings.color)
+        .lerp(glazeWhite, 0.45);
+      innerMaterial.color.set(settings.color).multiplyScalar(0.22);
+      const surfaceMap = ceramic ? ceramicTexture : null;
+      if (solidMaterial.map !== surfaceMap) {
+        solidMaterial.map = surfaceMap;
+        solidMaterial.bumpMap = surfaceMap;
+        solidMaterial.needsUpdate = true;
+      }
 
       const p = THREE.MathUtils.clamp(settings.progress, 0, 1);
       pointMaterial.opacity = THREE.MathUtils.clamp(1 - p / 0.34, 0, 1) * 0.95;
@@ -290,6 +399,10 @@ export default function VaseScene({
             );
       solidMaterial.opacity = THREE.MathUtils.clamp((p - 0.34) / 0.46, 0, 1);
       solid.visible = solidMaterial.opacity > 0.01;
+      rimMesh.visible = solid.visible;
+      foot.visible = solid.visible;
+      inner.visible = solid.visible;
+      innerMaterial.opacity = solidMaterial.opacity;
       solid.castShadow = solidMaterial.opacity > 0.6;
       grid.visible = settings.showGrid;
 
@@ -309,7 +422,7 @@ export default function VaseScene({
 
       group.rotation.y = pointer.yaw;
       camera.position.set(0, cameraY + pointer.pitch * 2.2, pointer.distance);
-      camera.lookAt(0, cameraY * 0.14, 0);
+      camera.lookAt(0, presentation === "ar" ? -0.04 : cameraY * 0.14, 0);
 
       renderer.render(scene, camera);
       if (!still) frame = requestAnimationFrame(render);
@@ -327,16 +440,24 @@ export default function VaseScene({
       canvas.removeEventListener("pointercancel", onPointerUp);
       canvas.removeEventListener("wheel", onWheel);
       geometry.dispose();
+      rimGeometry.dispose();
+      innerGeometry.dispose();
+      footGeometry.dispose();
       solidMaterial.dispose();
+      innerMaterial.dispose();
+      ceramicTexture?.dispose();
       wireMaterial.dispose();
       pointMaterial.dispose();
       floor.geometry.dispose();
       floorMaterial.dispose();
       grid.geometry.dispose();
       (grid.material as THREE.Material).dispose();
+      environmentTarget.dispose();
+      roomEnvironment.dispose();
+      pmrem.dispose();
       renderer.dispose();
     };
-  }, [cameraY, compact, distance, interactive, scale, still]);
+  }, [cameraY, compact, distance, interactive, presentation, scale, still]);
 
   return <canvas ref={canvasRef} className={className} aria-label={label} />;
 }

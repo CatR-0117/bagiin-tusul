@@ -468,6 +468,7 @@ export default function SnapLanding({ onCreate, onModels }: SnapLandingProps) {
               <div className="snap-phone-status"><span>9:41</span><span>● ● ●</span></div>
               <div className="snap-ar-camera">
                 <span className="snap-camera-copy">SURFACE FOUND</span>
+                <span className="snap-ar-live"><i /> LIVE AR PREVIEW</span>
                 <div className="snap-room-lines" />
                 <VaseScene
                   className="snap-ar-vase"
@@ -475,12 +476,19 @@ export default function SnapLanding({ onCreate, onModels }: SnapLandingProps) {
                   progress={1}
                   autoRotate={false}
                   interactive={false}
-                  distance={4.35}
-                  cameraY={0.95}
+                  presentation="ar"
+                  scale={0.8}
+                  distance={4.4}
+                  cameraY={0.72}
                   label="3D vase placed on a detected floor in AR"
                 />
                 <span className="snap-reticle"><i /></span>
                 <span className="snap-ar-contact" />
+                <div className="snap-ar-model-info">
+                  <span className="snap-ar-model-swatch" />
+                  <span><b>Ceramic vase</b><small>42 cm · 1:1 scale</small></span>
+                  <Check size={13} />
+                </div>
               </div>
               <div className="snap-ar-bottom"><span /><b>Pinch to scale · drag to rotate</b><span /></div>
             </div>
