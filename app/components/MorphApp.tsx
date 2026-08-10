@@ -81,6 +81,94 @@ type Modal = "share" | "send" | null;
 
 type Toast = { id: number; text: string };
 
+type ManualUploadMeta = {
+  id: string;
+  name: string;
+  hasUsdz: boolean;
+  createdAt: number;
+};
+
+type UploadedPart = { partNumber: number; etag: string };
+
+async function readUploadResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  let payload: { error?: string } & Partial<T> = {};
+  try {
+    payload = JSON.parse(text) as { error?: string } & Partial<T>;
+  } catch {
+    /* proxy/server plain text error */
+  }
+  if (!response.ok) {
+    throw new Error(
+      payload.error ??
+        (response.status === 413
+          ? "Файл серверийн зөвшөөрөх хэмжээнээс том байна."
+          : "Upload амжилтгүй боллоо. Дахин оролдоно уу."),
+    );
+  }
+  return payload as T;
+}
+
+/** Том файлыг 5 MB хэсгүүдээр дамжуулж R2 дээр нэг объект болгон нийлүүлнэ. */
+async function uploadManualFile(
+  file: File,
+  format: "glb" | "usdz",
+  id: string | undefined,
+  onProgress: (percent: number) => void,
+): Promise<ManualUploadMeta> {
+  const startResponse = await fetch("/api/manual-model/multipart", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      fileName: file.name,
+      fileSize: file.size,
+      format,
+      id,
+    }),
+  });
+  const start = await readUploadResponse<{
+    id: string;
+    uploadId: string;
+    partSize: number;
+  }>(startResponse);
+
+  const partCount = Math.ceil(file.size / start.partSize);
+  const parts: UploadedPart[] = [];
+  for (let index = 0; index < partCount; index++) {
+    const partNumber = index + 1;
+    const chunk = file.slice(
+      index * start.partSize,
+      Math.min(file.size, (index + 1) * start.partSize),
+    );
+    const partResponse = await fetch(
+      `/api/manual-model/multipart/${start.id}/${format}/${partNumber}?uploadId=${encodeURIComponent(start.uploadId)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: chunk,
+      },
+    );
+    parts.push(await readUploadResponse<UploadedPart>(partResponse));
+    onProgress(Math.round((partNumber / (partCount + 1)) * 100));
+  }
+
+  const completeResponse = await fetch(
+    `/api/manual-model/multipart/${start.id}/${format}/complete`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        uploadId: start.uploadId,
+        fileName: file.name,
+        parts,
+      }),
+    },
+  );
+  const meta = await readUploadResponse<ManualUploadMeta>(completeResponse);
+  onProgress(100);
+  return meta;
+}
+
 const planData = [
   {
     name: "Эхлэл",
@@ -529,6 +617,7 @@ export default function MorphApp() {
   const fileInput = useRef<HTMLInputElement>(null);
   const manualModelInput = useRef<HTMLInputElement>(null);
   const [manualUploading, setManualUploading] = useState(false);
+  const [manualUploadProgress, setManualUploadProgress] = useState(0);
 
   /* ---------------------------- Meshy төлөв ---------------------------- */
   // 1–4 эх зураг. Эргүүлэлт/тайралт нь эдгээрт бодитоор хэрэглэгдэнэ.
@@ -796,78 +885,45 @@ export default function MorphApp() {
       return;
     }
     if (
-      glb.size > 90 * 1024 * 1024 ||
-      (usdz?.size ?? 0) > 90 * 1024 * 1024
+      glb.size > 250 * 1024 * 1024 ||
+      (usdz?.size ?? 0) > 250 * 1024 * 1024
     ) {
-      addToast("GLB болон USDZ файл тус бүр 90 MB-аас бага байх ёстой");
+      addToast("GLB болон USDZ файл тус бүр 250 MB-аас бага байх ёстой");
       return;
     }
 
     setManualUploading(true);
+    setManualUploadProgress(0);
     setGenError(null);
     try {
-      const body = new FormData();
-      body.append("glb", glb);
-
-      const response = await fetch("/api/manual-model", {
-        method: "POST",
-        body,
-      });
-      const responseText = await response.text();
-      const payload = (() => {
-        try {
-          return JSON.parse(responseText) as {
-            id?: string;
-            name?: string;
-            hasUsdz?: boolean;
-            createdAt?: number;
-            error?: string;
-          };
-        } catch {
-          return {
-            error:
-              response.status === 413
-                ? "GLB файл серверийн зөвшөөрөх хэмжээнээс том байна."
-                : "Серверээс буруу хариу ирлээ. Дахин оролдоно уу.",
-          };
-        }
-      })();
-      if (!response.ok || !payload.id) {
-        throw new Error(payload.error ?? "3D загварыг оруулж чадсангүй.");
-      }
+      const glbMeta = await uploadManualFile(glb, "glb", undefined, (value) =>
+        setManualUploadProgress(usdz ? Math.round(value * 0.7) : value),
+      );
 
       let hasUsdz = false;
       if (usdz) {
-        const usdzBody = new FormData();
-        usdzBody.append("usdz", usdz);
-        const usdzResponse = await fetch(`/api/manual-model/${payload.id}/usdz`, {
-          method: "PUT",
-          body: usdzBody,
-        });
-        hasUsdz = usdzResponse.ok;
-        if (!usdzResponse.ok) {
+        try {
+          await uploadManualFile(usdz, "usdz", glbMeta.id, (value) =>
+            setManualUploadProgress(70 + Math.round(value * 0.3)),
+          );
+          hasUsdz = true;
+        } catch {
           addToast("GLB орлоо, харин USDZ хадгалагдсангүй");
         }
       }
 
-      const saved = payload as {
-        id?: string;
-        name?: string;
-        createdAt?: number;
-      };
-
       saveModel({
-        id: payload.id,
-        name: saved.name ?? glb.name.replace(/\.glb$/i, ""),
+        id: glbMeta.id,
+        name: glbMeta.name ?? glb.name.replace(/\.glb$/i, ""),
         status: "SUCCEEDED",
-        createdAt: saved.createdAt ?? Date.now(),
+        createdAt: glbMeta.createdAt ?? Date.now(),
         quality: "high",
         kind: "manual",
         hasUsdz,
       });
       setTask(null);
       setTaskKind("manual");
-      setTaskId(payload.id);
+      setTaskId(glbMeta.id);
       addToast("3D загвар AR-д бэлэн боллоо");
       go("ar");
     } catch (error) {
@@ -879,6 +935,7 @@ export default function MorphApp() {
       addToast(message);
     } finally {
       setManualUploading(false);
+      setManualUploadProgress(0);
     }
   };
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
@@ -1077,7 +1134,7 @@ export default function MorphApp() {
                     <p>
                       GLB файлаа оруулаад шууд 3D-аар үзэж, QR кодоор утсандаа
                       нээгээд AR-аар байрлуулаарай. iPhone-д USDZ файлыг хамт
-                      сонговол хамгийн найдвартай. <strong>Файл тус бүр 90 MB хүртэл.</strong>
+                      сонговол хамгийн найдвартай. <strong>Файл тус бүр 250 MB хүртэл.</strong>
                     </p>
                   </div>
                   <Button
@@ -1090,7 +1147,9 @@ export default function MorphApp() {
                     ) : (
                       <Upload size={17} />
                     )}
-                    {manualUploading ? "Оруулж байна…" : "3D файл оруулах"}
+                    {manualUploading
+                      ? `Оруулж байна… ${manualUploadProgress}%`
+                      : "3D файл оруулах"}
                   </Button>
                 </div>
                 <div className="upload-method-divider">
