@@ -35,6 +35,7 @@ import {
   useState,
 } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
+import { upload as uploadToVercelBlob } from "@vercel/blob/client";
 import ModelViewer, { type ModelViewerHandle } from "./ModelViewer";
 import QrCode from "./QrCode";
 import SnapLanding from "./SnapLanding";
@@ -127,10 +128,44 @@ async function uploadManualFile(
     }),
   });
   const start = await readUploadResponse<{
-    id: string;
-    uploadId: string;
-    partSize: number;
+    backend?: "vercel-blob";
+    id?: string;
+    uploadId?: string;
+    partSize?: number;
   }>(startResponse);
+
+  if (start.backend === "vercel-blob") {
+    const modelId = id ?? `upload_${crypto.randomUUID()}`;
+    const contentType =
+      format === "glb" ? "model/gltf-binary" : "model/vnd.usdz+zip";
+    const blob = await uploadToVercelBlob(
+      `manual/${modelId}/model.${format}`,
+      file,
+      {
+        access: "public",
+        handleUploadUrl: "/api/manual-model/vercel-upload",
+        multipart: true,
+        contentType,
+        onUploadProgress: ({ percentage }) =>
+          onProgress(Math.round(percentage)),
+      },
+    );
+    const completeResponse = await fetch("/api/manual-model/vercel-complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: modelId,
+        format,
+        fileName: file.name,
+        url: blob.url,
+      }),
+    });
+    return readUploadResponse<ManualUploadMeta>(completeResponse);
+  }
+
+  if (!start.id || !start.uploadId || !start.partSize) {
+    throw new Error("Upload хадгалалт тохируулагдаагүй байна.");
+  }
 
   const partCount = Math.ceil(file.size / start.partSize);
   const parts: UploadedPart[] = [];

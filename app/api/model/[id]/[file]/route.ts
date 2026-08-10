@@ -37,6 +37,14 @@ async function serveManual(
   const contentType = MANUAL_FILES[file];
   if (!contentType) return new Response("Not found", { status: 404 });
 
+  if (process.env.VERCEL) {
+    const { getManualModelMeta } = await import("@/lib/manual-models");
+    const meta = await getManualModelMeta(id);
+    const target = file === "model.glb" ? meta?.glbUrl : meta?.usdzUrl;
+    if (!target) return new Response("Not found", { status: 404 });
+    return Response.redirect(target, 307);
+  }
+
   const range = request.headers.get("range");
   const object = await getModelBucket().get(
     manualModelKey(id, file),

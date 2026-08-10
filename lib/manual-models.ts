@@ -5,6 +5,9 @@ export type ManualModelMeta = {
   name: string;
   hasUsdz: boolean;
   createdAt: number;
+  /** Vercel Blob backend ашиглах үед нийтийн model URL-ууд. */
+  glbUrl?: string;
+  usdzUrl?: string;
 };
 
 export const MANUAL_MODEL_PREFIX = "upload_";
@@ -28,6 +31,19 @@ export async function getManualModelMeta(
   id: string,
 ): Promise<ManualModelMeta | null> {
   if (!isManualModelId(id)) return null;
+
+  if (process.env.VERCEL) {
+    if (!process.env.BLOB_READ_WRITE_TOKEN) return null;
+    const { list } = await import("@vercel/blob");
+    const pathname = manualModelKey(id, "meta.json");
+    const result = await list({ prefix: pathname, limit: 1 });
+    const metaBlob = result.blobs.find((blob) => blob.pathname === pathname);
+    if (!metaBlob) return null;
+    const response = await fetch(metaBlob.url, { cache: "no-store" });
+    if (!response.ok) return null;
+    return (await response.json()) as ManualModelMeta;
+  }
+
   const object = await getModelBucket().get(manualModelKey(id, "meta.json"));
   if (!object) return null;
 

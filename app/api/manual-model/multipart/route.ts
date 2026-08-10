@@ -20,6 +20,9 @@ type StartBody = {
 
 export async function POST(request: Request) {
   try {
+    if (process.env.VERCEL) {
+      return Response.json({ backend: "vercel-blob" });
+    }
     const body = (await request.json()) as StartBody;
     const format = body.format;
     const fileName = body.fileName?.trim() ?? "";
