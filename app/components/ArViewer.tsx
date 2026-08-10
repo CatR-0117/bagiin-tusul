@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { Camera, Download, RotateCcw, Smartphone } from "lucide-react";
 import ModelViewer, { type ModelViewerHandle } from "./ModelViewer";
 import QrCode from "./QrCode";
@@ -27,16 +33,22 @@ const HINTS: Record<Platform, string[]> = {
   ],
 };
 
+const noopSubscribe = () => () => {};
+const clientReady = () => true;
+const serverReady = () => false;
+
 export default function ArViewer({
   id,
   initial,
   manual,
   pageUrl,
+  autoLaunch,
 }: {
   id: string;
   initial: PublicTask | null;
   manual: ManualModelMeta | null;
   pageUrl: string;
+  autoLaunch: boolean;
 }) {
   const urls = modelUrls(id);
   const viewer = useRef<ModelViewerHandle>(null);
@@ -44,7 +56,16 @@ export default function ArViewer({
   const [task, setTask] = useState<PublicTask | null>(initial);
   const [arStatus, setArStatus] = useState<string>("not-presenting");
   const [note, setNote] = useState<string | null>(null);
+  const [autoOpening, setAutoOpening] = useState(false);
+  const hydrated = useSyncExternalStore(
+    noopSubscribe,
+    clientReady,
+    serverReady,
+  );
   const platform = usePlatform();
+  const ready = Boolean(manual) || task?.status === "SUCCEEDED";
+  const failed = task?.status === "FAILED" || task?.status === "CANCELED";
+  const hasIosAsset = !manual || manual.hasUsdz;
 
   // Загвар бэлэн болтол төлөвийг тандана.
   useEffect(() => {
@@ -68,19 +89,38 @@ export default function ArViewer({
     return () => window.clearInterval(timer);
   }, [id, manual, task?.status]);
 
+  const launchIos = useCallback(() => {
+    window.sessionStorage.setItem(`snapar.quick-look.${id}`, "opened");
+    window.location.assign(urls.usdz);
+  }, [id, urls.usdz]);
+
+  // QR-аар орсон iPhone хэрэглэгчийг GLB viewer ачаалуулахгүйгээр Quick Look
+  // руу шууд шилжүүлнэ. Safari автомат шилжилтийг хоригловол том товч үлдэнэ.
+  useEffect(() => {
+    if (!autoLaunch || platform !== "ios" || !ready || !hasIosAsset) return;
+    const key = `snapar.quick-look.${id}`;
+    if (window.sessionStorage.getItem(key) === "opened") return;
+
+    setAutoOpening(true);
+    const timer = window.setTimeout(launchIos, 450);
+    return () => window.clearTimeout(timer);
+  }, [autoLaunch, hasIosAsset, id, launchIos, platform, ready]);
+
   const openAr = useCallback(() => {
+    if (platform === "ios") {
+      if (manual && !manual.hasUsdz) {
+        setNote("iPhone AR-д USDZ файл хэрэгтэй. GLB болон USDZ-ээ хамтад нь оруулна уу.");
+      } else {
+        launchIos();
+      }
+      return;
+    }
     if (viewer.current?.canActivateAR()) {
       viewer.current.activateAR();
       return;
     }
     // model-viewer AR-ыг идэвхжүүлж чадахгүй бол шууд файл руу шилжинэ.
-    if (platform === "ios") {
-      if (manual && !manual.hasUsdz) {
-        setNote("iPhone дээр Safari ашиглана уу. Илүү найдвартай AR-д USDZ хувилбарыг хамт оруулна.");
-      } else {
-        window.location.href = urls.usdz;
-      }
-    } else if (platform === "android") {
+    if (platform === "android") {
       const file = absoluteUrl(urls.glb);
       window.location.href =
         `intent://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(file)}` +
@@ -89,10 +129,7 @@ export default function ArViewer({
     } else {
       setNote("AR горим зөвхөн iPhone эсвэл Android утсан дээр ажиллана.");
     }
-  }, [manual, platform, urls.glb, urls.usdz]);
-
-  const ready = Boolean(manual) || task?.status === "SUCCEEDED";
-  const failed = task?.status === "FAILED" || task?.status === "CANCELED";
+  }, [launchIos, manual, platform, urls.glb]);
 
   return (
     <div className="ar-standalone">
@@ -123,6 +160,54 @@ export default function ArViewer({
             хуудсыг нээлттэй үлдээгээрэй
           </p>
         </div>
+      ) : !hydrated ? (
+        <div className="ar-standalone-state">
+          <span className="ar-standalone-spinner" aria-hidden="true" />
+          <h1>Төхөөрөмж таньж байна</h1>
+          <p>Танд тохирох AR горимыг бэлтгэж байна…</p>
+        </div>
+      ) : platform === "ios" ? (
+        <main className="ar-ios-entry">
+          {hasIosAsset ? (
+            <>
+              <span className="ar-ios-icon" aria-hidden="true">
+                <Camera />
+              </span>
+              <span className="ar-ios-kicker">IPHONE · QUICK LOOK</span>
+              <h1>{autoOpening ? "AR нээж байна…" : "AR-д бэлэн боллоо"}</h1>
+              <p>
+                Камер нээгдсэний дараа утсаа аажим хөдөлгөж гадаргуу илрүүлээд
+                загвараа байрлуулаарай.
+              </p>
+              <a
+                className="ar-standalone-cta"
+                href={urls.usdz}
+                onClick={(event) => {
+                  event.preventDefault();
+                  launchIos();
+                }}
+              >
+                <Smartphone size={19} /> AR-Г ШУУД НЭЭХ
+              </a>
+              <small>Автоматаар нээгдэхгүй бол дээрх товчийг нэг удаа дарна уу.</small>
+            </>
+          ) : (
+            <>
+              <span className="ar-ios-icon is-warning" aria-hidden="true">
+                <Smartphone />
+              </span>
+              <span className="ar-ios-kicker">IPHONE · USDZ ШААРДЛАГАТАЙ</span>
+              <h1>iPhone AR файл дутуу байна</h1>
+              <p>
+                Энэ загварт USDZ хувилбар байхгүй. Website-д GLB болон USDZ
+                файлаа хамтад нь оруулаад шинэ QR код уншуулна уу.
+              </p>
+              <Link href="/" className="ar-standalone-cta">
+                ФАЙЛ ОРУУЛАХ
+              </Link>
+            </>
+          )}
+        </main>
       ) : (
         <>
           <div className="ar-standalone-stage">

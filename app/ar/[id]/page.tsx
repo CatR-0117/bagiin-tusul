@@ -8,7 +8,10 @@ import { getManualModelMeta, isManualModelId } from "@/lib/manual-models";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ ar?: string }>;
+};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
@@ -25,8 +28,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function ArPage({ params }: Props) {
+export default async function ArPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const { ar } = await searchParams;
   const requestHeaders = await headers();
   const host =
     requestHeaders.get("x-forwarded-host") ??
@@ -35,16 +39,33 @@ export default async function ArPage({ params }: Props) {
   const protocol =
     requestHeaders.get("x-forwarded-proto") ??
     (host.startsWith("localhost") ? "http" : "https");
-  const pageUrl = `${protocol}://${host}/ar/${encodeURIComponent(id)}`;
+  const pageUrl = `${protocol}://${host}/ar/${encodeURIComponent(id)}?ar=1`;
+  const autoLaunch = ar === "1";
 
   const manual = await getManualModelMeta(id).catch(() => null);
   if (manual) {
-    return <ArViewer id={id} initial={null} manual={manual} pageUrl={pageUrl} />;
+    return (
+      <ArViewer
+        id={id}
+        initial={null}
+        manual={manual}
+        pageUrl={pageUrl}
+        autoLaunch={autoLaunch}
+      />
+    );
   }
 
   const initial = await getTask(id)
     .then(({ task, kind }) => toPublicTask(task, kind))
     .catch(() => null);
 
-  return <ArViewer id={id} initial={initial} manual={null} pageUrl={pageUrl} />;
+  return (
+    <ArViewer
+      id={id}
+      initial={initial}
+      manual={null}
+      pageUrl={pageUrl}
+      autoLaunch={autoLaunch}
+    />
+  );
 }

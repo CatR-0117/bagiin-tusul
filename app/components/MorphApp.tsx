@@ -1089,7 +1089,9 @@ export default function MorphApp() {
     [go],
   );
 
-  const arLink = taskId ? absoluteUrl(modelUrls(taskId).arPage) : "";
+  const arLink = taskId
+    ? `${absoluteUrl(modelUrls(taskId).arPage)}?ar=1`
+    : "";
 
   const copyLink = async () => {
     if (!arLink) {
@@ -1938,13 +1940,13 @@ export default function MorphApp() {
                 )}
                 <div className="qr-steps">
                   <span>
-                    <b>01</b>QR кодыг уншуулна
+                    <b>01</b>iPhone камераар QR кодыг уншуулна
                   </span>
                   <span>
-                    <b>02</b>Камер ашиглах зөвшөөрөл өгнө
+                    <b>02</b>AR автоматаар нээгдэнэ
                   </span>
                   <span>
-                    <b>03</b>Загвар байрлуулах гадаргуугаа сонгоно
+                    <b>03</b>Гадаргуугаа сонгож загвараа байрлуулна
                   </span>
                 </div>
               </div>
