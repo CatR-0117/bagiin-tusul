@@ -40,6 +40,7 @@ import ModelViewer, { type ModelViewerHandle } from "./ModelViewer";
 import QrCode from "./QrCode";
 import SnapLanding from "./SnapLanding";
 import { motionTokens } from "./motion-tokens";
+import { loadModelViewer } from "@/lib/cdn";
 
 const VaseScene = dynamic(() => import("./VaseScene"), {
   ssr: false,
@@ -87,6 +88,8 @@ type ManualUploadMeta = {
   name: string;
   hasUsdz: boolean;
   createdAt: number;
+  glbUrl?: string;
+  usdzUrl?: string;
 };
 
 type UploadedPart = { partNumber: number; etag: string };
@@ -673,7 +676,7 @@ export default function MorphApp() {
   const currentModel = models.find((model) => model.id === taskId);
   const isManualModel = currentModel?.kind === "manual";
   const modelReady = task?.status === "SUCCEEDED" || isManualModel;
-  const urls = taskId ? modelUrls(taskId) : null;
+  const urls = taskId ? modelUrls(taskId, currentModel) : null;
 
   const addToast = useCallback((text: string) => {
     const id = Date.now() + Math.random();
@@ -930,18 +933,26 @@ export default function MorphApp() {
     setManualUploading(true);
     setManualUploadProgress(0);
     setGenError(null);
+    // Upload явах хооронд ~2 MB viewer script-ийг зэрэг татаж бэлдэнэ.
+    void loadModelViewer().catch(() => undefined);
     try {
       const glbMeta = await uploadManualFile(glb, "glb", undefined, (value) =>
         setManualUploadProgress(usdz ? Math.round(value * 0.7) : value),
       );
 
       let hasUsdz = false;
+      let usdzUrl: string | undefined;
       if (usdz) {
         try {
-          await uploadManualFile(usdz, "usdz", glbMeta.id, (value) =>
-            setManualUploadProgress(70 + Math.round(value * 0.3)),
+          const usdzMeta = await uploadManualFile(
+            usdz,
+            "usdz",
+            glbMeta.id,
+            (value) =>
+              setManualUploadProgress(70 + Math.round(value * 0.3)),
           );
           hasUsdz = true;
+          usdzUrl = usdzMeta.usdzUrl;
         } catch {
           addToast("GLB орлоо, харин USDZ хадгалагдсангүй");
         }
@@ -955,6 +966,8 @@ export default function MorphApp() {
         quality: "high",
         kind: "manual",
         hasUsdz,
+        glbUrl: glbMeta.glbUrl,
+        usdzUrl,
       });
       setTask(null);
       setTaskKind("manual");

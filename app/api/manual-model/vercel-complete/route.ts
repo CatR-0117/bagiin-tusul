@@ -34,7 +34,10 @@ export async function POST(request: Request) {
       return Response.json({ error: "Model metadata буруу байна." }, { status: 400 });
     }
 
-    const current = await getManualModelMeta(body.id);
+    // Шинэ GLB-ийн metadata үүсгэхэд хуучин metadata хэрэггүй. Blob list + fetch
+    // гэсэн хоёр нэмэлт хүсэлтийг зөвхөн USDZ нэмэх үед хийнэ.
+    const current =
+      body.format === "usdz" ? await getManualModelMeta(body.id) : null;
     const meta: ManualModelMeta =
       body.format === "glb"
         ? {

@@ -14,6 +14,9 @@ export type StoredModel = {
   kind?: "image-to-3d" | "multi-image-to-3d" | "manual";
   /** Гараар оруулсан загвар iOS-д зориулсан USDZ хувилбартай эсэх */
   hasUsdz?: boolean;
+  /** Vercel Blob руу оруулсан файлыг redirect алгасаж шууд ачаална. */
+  glbUrl?: string;
+  usdzUrl?: string;
   /** Хэдэн эх зурагнаас үүсгэсэн */
   sourceCount?: number;
   /** Эх зургийн жижигрүүлсэн хувилбар (сангийн жагсаалтад харуулах) */
@@ -22,10 +25,13 @@ export type StoredModel = {
 
 const STORE_KEY = "morph-ar.models.v1";
 
-export function modelUrls(id: string) {
+export function modelUrls(
+  id: string,
+  direct?: Pick<StoredModel, "glbUrl" | "usdzUrl">,
+) {
   return {
-    glb: `/api/model/${id}/model.glb`,
-    usdz: `/api/model/${id}/model.usdz`,
+    glb: direct?.glbUrl ?? `/api/model/${id}/model.glb`,
+    usdz: direct?.usdzUrl ?? `/api/model/${id}/model.usdz`,
     poster: `/api/model/${id}/preview.png`,
     glbDownload: `/api/model/${id}/model.glb?dl=1`,
     usdzDownload: `/api/model/${id}/model.usdz?dl=1`,
