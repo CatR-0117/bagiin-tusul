@@ -3846,6 +3846,7 @@ input:focus-visible {
 }
 
 .ar-ios-entry {
+  position: relative;
   display: flex;
   min-height: calc(100dvh - 62px);
   flex: 1;
@@ -3857,6 +3858,19 @@ input:focus-visible {
     radial-gradient(circle at 50% 28%, rgba(199, 255, 89, 0.12), transparent 34%),
     var(--bg);
   text-align: center;
+}
+
+/* USDZ оруулаагүй manual GLB-ийг model-viewer iPhone дээр автоматаар
+   хөрвүүлнэ. Viewer нь render/load хийх хэмжээтэй боловч UI-ийн гадна байна. */
+.ar-ios-generator {
+  position: fixed;
+  top: 0;
+  left: -160px;
+  width: 128px;
+  height: 128px;
+  overflow: hidden;
+  opacity: 0.01;
+  pointer-events: none;
 }
 
 .ar-ios-icon {
@@ -3910,10 +3924,23 @@ input:focus-visible {
   min-height: 58px;
 }
 
+.ar-ios-entry .ar-standalone-cta:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 .ar-ios-entry small {
   max-width: 320px;
   margin-top: 14px;
   color: var(--faint);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ar-ios-note {
+  max-width: 340px;
+  margin-top: 12px;
+  color: var(--danger);
   font-size: 11px;
   line-height: 1.5;
 }

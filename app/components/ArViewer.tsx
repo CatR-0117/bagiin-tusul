@@ -55,13 +55,14 @@ export default function ArViewer({
   pageUrl: string;
   autoLaunch: boolean;
 }) {
-  const urls = modelUrls(id);
+  const urls = modelUrls(id, manual ?? undefined);
   const viewer = useRef<ModelViewerHandle>(null);
 
   const [task, setTask] = useState<PublicTask | null>(initial);
   const [arStatus, setArStatus] = useState<string>("not-presenting");
   const [note, setNote] = useState<string | null>(null);
   const [autoOpening, setAutoOpening] = useState(false);
+  const [generatedArReady, setGeneratedArReady] = useState(false);
   const hydrated = useSyncExternalStore(
     noopSubscribe,
     clientReady,
@@ -106,15 +107,21 @@ export default function ArViewer({
     const key = `snapar.quick-look.${id}`;
     if (window.sessionStorage.getItem(key) === "opened") return;
 
-    setAutoOpening(true);
-    const timer = window.setTimeout(launchIos, 450);
+    const timer = window.setTimeout(() => {
+      setAutoOpening(true);
+      launchIos();
+    }, 450);
     return () => window.clearTimeout(timer);
   }, [autoLaunch, hasIosAsset, id, launchIos, platform, ready]);
 
   const openAr = useCallback(() => {
     if (platform === "ios") {
       if (manual && !manual.hasUsdz) {
-        setNote("iPhone AR-д USDZ файл хэрэгтэй. GLB болон USDZ-ээ хамтад нь оруулна уу.");
+        if (viewer.current?.canActivateAR()) {
+          viewer.current.activateAR();
+        } else {
+          setNote("iPhone AR файлыг бэлтгэж байна. Түр хүлээгээд дахин дарна уу.");
+        }
       } else {
         launchIos();
       }
@@ -199,18 +206,46 @@ export default function ArViewer({
             </>
           ) : (
             <>
-              <span className="ar-ios-icon is-warning" aria-hidden="true">
-                <Smartphone />
+              <div className="ar-ios-generator" aria-hidden="true">
+                <ModelViewer
+                  ref={viewer}
+                  src={urls.glb}
+                  alt="iPhone AR-д бэлтгэж буй 3D загвар"
+                  ar
+                  arModes="quick-look"
+                  arScale="auto"
+                  cameraControls={false}
+                  onLoad={() => {
+                    setGeneratedArReady(true);
+                    setNote(null);
+                  }}
+                  onError={setNote}
+                />
+              </div>
+              <span className="ar-ios-icon" aria-hidden="true">
+                {generatedArReady ? <Camera /> : <Smartphone />}
               </span>
-              <span className="ar-ios-kicker">IPHONE · USDZ ШААРДЛАГАТАЙ</span>
-              <h1>iPhone AR файл дутуу байна</h1>
+              <span className="ar-ios-kicker">IPHONE · AUTO USDZ</span>
+              <h1>
+                {generatedArReady ? "AR-д бэлэн боллоо" : "AR бэлтгэж байна…"}
+              </h1>
               <p>
-                Энэ загварт USDZ хувилбар байхгүй. Website-д GLB болон USDZ
-                файлаа хамтад нь оруулаад шинэ QR код уншуулна уу.
+                Оруулсан GLB загварыг iPhone Quick Look-д автоматаар бэлтгэнэ.
+                Бэлэн болмогц доорх товчийг дарна уу.
               </p>
-              <Link href="/" className="ar-standalone-cta">
-                ФАЙЛ ОРУУЛАХ
-              </Link>
+              <button
+                className="ar-standalone-cta"
+                onClick={openAr}
+                disabled={!generatedArReady}
+              >
+                <Smartphone size={19} />
+                {generatedArReady ? "AR-Г ШУУД НЭЭХ" : "БЭЛТГЭЖ БАЙНА…"}
+              </button>
+              <small>
+                Эхний удаа загварын хэмжээнээс шалтгаалан хэдэн секунд зарцуулж
+                болно.
+              </small>
+              {note && <span className="ar-ios-note">{note}</span>}
             </>
           )}
         </main>
