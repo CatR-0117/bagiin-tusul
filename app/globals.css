@@ -2021,6 +2021,34 @@ input:focus-visible {
   color: var(--lime);
 }
 
+.ar-device-mode {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.11em;
+}
+
+.ar-device-mode-android {
+  border-color: rgba(201, 255, 99, 0.3);
+  color: var(--lime);
+}
+
+.ar-quick-look-trigger-image {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .mobile-ar {
   position: relative;
   min-height: 100dvh;

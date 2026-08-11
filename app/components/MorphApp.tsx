@@ -1944,13 +1944,13 @@ export default function MorphApp() {
                 )}
                 <div className="qr-steps">
                   <span>
-                    <b>01</b>iPhone камераар QR кодыг уншуулна
+                    <b>01</b>Утасныхаа камераар QR кодыг уншуулна
                   </span>
                   <span>
-                    <b>02</b>AR автоматаар нээгдэнэ
+                    <b>02</b>iPhone эсвэл Android-ийг автоматаар танина
                   </span>
                   <span>
-                    <b>03</b>Гадаргуугаа сонгож загвараа байрлуулна
+                    <b>03</b>iPhone → USDZ · Android → GLB
                   </span>
                 </div>
               </div>

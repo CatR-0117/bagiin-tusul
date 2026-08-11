@@ -5,6 +5,7 @@ import { getTask, toPublicTask } from "@/lib/meshy";
 // (дөрвөлжин хаалт нь glob тэмдэгт) тул alias-аар импортолж байна.
 import ArViewer from "@/app/components/ArViewer";
 import { getManualModelMeta, isManualModelId } from "@/lib/manual-models";
+import { platformFromUserAgent } from "@/lib/platform";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,9 @@ export default async function ArPage({ params, searchParams }: Props) {
     (host.startsWith("localhost") ? "http" : "https");
   const pageUrl = `${protocol}://${host}/ar/${encodeURIComponent(id)}?ar=1`;
   const autoLaunch = ar === "1";
+  const initialPlatform = platformFromUserAgent(
+    requestHeaders.get("user-agent") ?? "",
+  );
 
   const manual = await getManualModelMeta(id).catch(() => null);
   if (manual) {
@@ -51,6 +55,7 @@ export default async function ArPage({ params, searchParams }: Props) {
         manual={manual}
         pageUrl={pageUrl}
         autoLaunch={autoLaunch}
+        initialPlatform={initialPlatform}
       />
     );
   }
@@ -66,6 +71,7 @@ export default async function ArPage({ params, searchParams }: Props) {
       manual={null}
       pageUrl={pageUrl}
       autoLaunch={autoLaunch}
+      initialPlatform={initialPlatform}
     />
   );
 }

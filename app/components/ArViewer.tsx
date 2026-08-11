@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   useCallback,
   useEffect,
@@ -48,12 +49,14 @@ export default function ArViewer({
   manual,
   pageUrl,
   autoLaunch,
+  initialPlatform,
 }: {
   id: string;
   initial: PublicTask | null;
   manual: ManualModelMeta | null;
   pageUrl: string;
   autoLaunch: boolean;
+  initialPlatform: Platform;
 }) {
   const urls = modelUrls(id, manual ?? undefined);
   const viewer = useRef<ModelViewerHandle>(null);
@@ -68,7 +71,7 @@ export default function ArViewer({
     clientReady,
     serverReady,
   );
-  const platform = usePlatform();
+  const platform = usePlatform(initialPlatform);
   const ready = Boolean(manual) || task?.status === "SUCCEEDED";
   const failed = task?.status === "FAILED" || task?.status === "CANCELED";
   const hasIosAsset = !manual || manual.hasUsdz;
@@ -158,7 +161,13 @@ export default function ArViewer({
           </span>
           SnapAR
         </Link>
-        <span className="ar-standalone-format">GLB · USDZ</span>
+        <span className="ar-standalone-format">
+          {platform === "ios"
+            ? "IPHONE · USDZ"
+            : platform === "android"
+              ? "ANDROID · GLB"
+              : "GLB · USDZ"}
+        </span>
       </header>
 
       {failed ? (
@@ -200,11 +209,21 @@ export default function ArViewer({
               <a
                 className="ar-standalone-cta"
                 href={urls.usdz}
-                onClick={(event) => {
-                  event.preventDefault();
-                  launchIos();
+                rel="ar"
+                onClick={() => {
+                  window.sessionStorage.setItem(
+                    `snapar.quick-look.${id}`,
+                    "opened",
+                  );
                 }}
               >
+                <Image
+                  className="ar-quick-look-trigger-image"
+                  src="/ar-coffee-table.avif"
+                  width={1}
+                  height={1}
+                  alt=""
+                />
                 <Smartphone size={19} /> AR-Г ШУУД НЭЭХ
               </a>
               <small>Автоматаар нээгдэхгүй бол дээрх товчийг нэг удаа дарна уу.</small>
@@ -274,6 +293,11 @@ export default function ArViewer({
           </div>
 
           <div className="ar-standalone-panel">
+            <span className={`ar-device-mode ar-device-mode-${platform}`}>
+              {platform === "android"
+                ? "ANDROID ТАНИГДЛАА · GLB SCENE VIEWER"
+                : "КОМПЬЮТЕР · QR-ЭЭР УТАС РУУ ШИЛЖҮҮЛНЭ"}
+            </span>
             {platform === "desktop" && pageUrl && (
               <div className="ar-standalone-qr">
                 <QrCode value={pageUrl} size={188} />

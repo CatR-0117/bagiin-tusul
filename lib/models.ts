@@ -1,6 +1,12 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import {
+  platformFromBrowser,
+  type Platform,
+} from "@/lib/platform";
+
+export type { Platform } from "@/lib/platform";
 
 /** Клиент талын туслахууд: файлын хаяг, зураг бэлтгэх, локал сан. */
 
@@ -375,27 +381,20 @@ function blobToDataUri(blob: Blob): Promise<string> {
 
 /* ------------------------------ төхөөрөмж ------------------------------- */
 
-export type Platform = "ios" | "android" | "desktop";
-
 export function detectPlatform(): Platform {
-  if (typeof navigator === "undefined") return "desktop";
-  const ua = navigator.userAgent;
-  const isIos =
-    /iPad|iPhone|iPod/.test(ua) ||
-    // iPadOS 13+ нь өөрийгөө Mac гэж танилцуулдаг
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  if (isIos) return "ios";
-  if (/Android/i.test(ua)) return "android";
-  return "desktop";
+  return platformFromBrowser();
 }
 
 const noopSubscribe = () => () => {};
-const serverPlatform = (): Platform => "desktop";
 
 /**
  * Төхөөрөмжийн төрөл. Сервер дээр үргэлж "desktop" гэж дүрслэгдээд,
  * hydration-ий дараа жинхэнэ утга руу шилжинэ — hydration зөрөхгүй.
  */
-export function usePlatform(): Platform {
-  return useSyncExternalStore(noopSubscribe, detectPlatform, serverPlatform);
+export function usePlatform(initialPlatform: Platform = "desktop"): Platform {
+  return useSyncExternalStore(
+    noopSubscribe,
+    detectPlatform,
+    () => initialPlatform,
+  );
 }
