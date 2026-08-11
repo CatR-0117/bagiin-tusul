@@ -42,15 +42,18 @@ export async function POST(
     const meta: ManualModelMeta =
       format === "glb"
         ? {
+            ...current,
             id,
             name: body.fileName?.replace(/\.glb$/i, "") || "3D загвар",
-            hasUsdz: false,
-            createdAt: Date.now(),
+            hasGlb: true,
+            hasUsdz: current?.hasUsdz ?? false,
+            createdAt: current?.createdAt ?? Date.now(),
           }
         : {
             ...(current ?? {
               id,
-              name: "3D загвар",
+              name: body.fileName?.replace(/\.usdz$/i, "") || "3D загвар",
+              hasGlb: false,
               createdAt: Date.now(),
             }),
             hasUsdz: true,

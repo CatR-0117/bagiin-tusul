@@ -87,6 +87,7 @@ type Toast = { id: number; text: string };
 type ManualUploadMeta = {
   id: string;
   name: string;
+  hasGlb?: boolean;
   hasUsdz: boolean;
   createdAt: number;
   glbUrl?: string;
@@ -628,6 +629,16 @@ function MiniVase({ color = "#e8e2d6" }: { color?: string }) {
   );
 }
 
+function UsdzOnlyPreview() {
+  return (
+    <div className="usdz-only-preview">
+      <Smartphone aria-hidden="true" />
+      <b>USDZ · IPHONE AR</b>
+      <span>Энэ формат iPhone Quick Look-д бэлэн.</span>
+    </div>
+  );
+}
+
 export default function MorphApp() {
   const [screen, setScreen] = useState<Screen>("landing");
   const [navOpen, setNavOpen] = useState(false);
@@ -676,6 +687,11 @@ export default function MorphApp() {
 
   const currentModel = models.find((model) => model.id === taskId);
   const isManualModel = currentModel?.kind === "manual";
+  const hasGlb = !isManualModel || currentModel?.hasGlb !== false;
+  const hasUsdz = !isManualModel || Boolean(currentModel?.hasUsdz);
+  const modelFormats = [hasGlb ? "GLB" : null, hasUsdz ? "USDZ" : null]
+    .filter(Boolean)
+    .join(" · ");
   const modelReady = task?.status === "SUCCEEDED" || isManualModel;
   const urls = taskId ? modelUrls(taskId, currentModel) : null;
 
@@ -911,7 +927,7 @@ export default function MorphApp() {
     event.target.value = "";
   };
 
-  /** Бэлэн GLB (+ сонголтоор USDZ)-г шууд AR холбоостой болгох. */
+  /** Бэлэн GLB, USDZ эсвэл хоёуланг нь шууд AR холбоостой болгох. */
   const handleManualModel = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     event.target.value = "";
@@ -919,12 +935,12 @@ export default function MorphApp() {
 
     const glb = files.find((file) => file.name.toLowerCase().endsWith(".glb"));
     const usdz = files.find((file) => file.name.toLowerCase().endsWith(".usdz"));
-    if (!glb) {
-      addToast("GLB файл сонгоно уу");
+    if (!glb && !usdz) {
+      addToast("GLB эсвэл USDZ файл сонгоно уу");
       return;
     }
     if (
-      glb.size > 250 * 1024 * 1024 ||
+      (glb?.size ?? 0) > 250 * 1024 * 1024 ||
       (usdz?.size ?? 0) > 250 * 1024 * 1024
     ) {
       addToast("GLB болон USDZ файл тус бүр 250 MB-аас бага байх ёстой");
@@ -934,46 +950,64 @@ export default function MorphApp() {
     setManualUploading(true);
     setManualUploadProgress(0);
     setGenError(null);
-    // Upload явах хооронд ~2 MB viewer script-ийг зэрэг татаж бэлдэнэ.
-    void loadModelViewer().catch(() => undefined);
+    // GLB байгаа үед upload явах хооронд viewer script-ийг зэрэг татаж бэлдэнэ.
+    if (glb) void loadModelViewer().catch(() => undefined);
     try {
-      const glbMeta = await uploadManualFile(glb, "glb", undefined, (value) =>
-        setManualUploadProgress(usdz ? Math.round(value * 0.7) : value),
-      );
+      const glbMeta = glb
+        ? await uploadManualFile(glb, "glb", undefined, (value) =>
+            setManualUploadProgress(usdz ? Math.round(value * 0.7) : value),
+          )
+        : null;
 
       let hasUsdz = false;
       let usdzUrl: string | undefined;
+      let usdzMeta: ManualUploadMeta | null = null;
       if (usdz) {
         try {
-          const usdzMeta = await uploadManualFile(
+          usdzMeta = await uploadManualFile(
             usdz,
             "usdz",
-            glbMeta.id,
+            glbMeta?.id,
             (value) =>
-              setManualUploadProgress(70 + Math.round(value * 0.3)),
+              setManualUploadProgress(
+                glb ? 70 + Math.round(value * 0.3) : value,
+              ),
           );
           hasUsdz = true;
           usdzUrl = usdzMeta.usdzUrl;
         } catch {
+          if (!glbMeta) throw new Error("USDZ файлыг хадгалж чадсангүй.");
           addToast("GLB орлоо, харин USDZ хадгалагдсангүй");
         }
       }
 
+      const meta = usdzMeta ?? glbMeta;
+      if (!meta) throw new Error("3D файлыг хадгалж чадсангүй.");
+      const sourceFile = glb ?? usdz;
+
       saveModel({
-        id: glbMeta.id,
-        name: glbMeta.name ?? glb.name.replace(/\.glb$/i, ""),
+        id: meta.id,
+        name:
+          meta.name ??
+          sourceFile?.name.replace(/\.(glb|usdz)$/i, "") ??
+          "3D загвар",
         status: "SUCCEEDED",
-        createdAt: glbMeta.createdAt ?? Date.now(),
+        createdAt: meta.createdAt ?? Date.now(),
         quality: "high",
         kind: "manual",
+        hasGlb: Boolean(glb),
         hasUsdz,
-        glbUrl: glbMeta.glbUrl,
+        glbUrl: glbMeta?.glbUrl,
         usdzUrl,
       });
       setTask(null);
       setTaskKind("manual");
-      setTaskId(glbMeta.id);
-      addToast("3D загвар AR-д бэлэн боллоо");
+      setTaskId(meta.id);
+      addToast(
+        glb
+          ? "3D загвар AR-д бэлэн боллоо"
+          : "USDZ загвар iPhone AR-д бэлэн боллоо",
+      );
       go("ar");
     } catch (error) {
       const message =
@@ -1137,6 +1171,10 @@ export default function MorphApp() {
   const openAr = () => {
     if (!urls) return;
     if (platform === "android") {
+      if (!hasGlb) {
+        addToast("Android AR-д GLB файл хэрэгтэй");
+        return;
+      }
       if (viewerRef.current?.canActivateAR()) {
         viewerRef.current.activateAR();
         return;
@@ -1185,9 +1223,9 @@ export default function MorphApp() {
                     <SectionLabel>ШУУД AR ТУРШИЛТ</SectionLabel>
                     <h2>Бэлэн 3D загвар байна уу?</h2>
                     <p>
-                      GLB файлаа оруулаад шууд 3D-аар үзэж, QR кодоор утсандаа
-                      нээгээд AR-аар байрлуулаарай. iPhone-д USDZ файлыг хамт
-                      сонговол хамгийн найдвартай. <strong>Файл тус бүр 250 MB хүртэл.</strong>
+                      GLB эсвэл USDZ файлаа дангаар нь, эсвэл хоёуланг нь хамт
+                      оруулж болно. USDZ-only загвар iPhone Quick Look-д шууд
+                      ажиллана. <strong>Файл тус бүр 250 MB хүртэл.</strong>
                     </p>
                   </div>
                   <Button
@@ -1202,7 +1240,7 @@ export default function MorphApp() {
                     )}
                     {manualUploading
                       ? `Оруулж байна… ${manualUploadProgress}%`
-                      : "3D файл оруулах"}
+                      : "GLB / USDZ оруулах"}
                   </Button>
                 </div>
                 <div className="upload-method-divider">
@@ -1615,9 +1653,11 @@ export default function MorphApp() {
               </button>
               {downloadOpen && urls && (
                 <span className="download-menu page-enter">
-                  <a href={urls.glbDownload} onClick={() => setDownloadOpen(false)}>
-                    GLB · WEB / ANDROID
-                  </a>
+                  {hasGlb && (
+                    <a href={urls.glbDownload} onClick={() => setDownloadOpen(false)}>
+                      GLB · WEB / ANDROID
+                    </a>
+                  )}
                   {(!isManualModel || currentModel?.hasUsdz) && (
                     <a
                       href={urls.usdzDownload}
@@ -1637,11 +1677,11 @@ export default function MorphApp() {
         <div className="studio-workspace">
           <div className={`studio-viewport ${grid ? "with-grid" : ""}`}>
             <CornerFrame />
-            {modelReady && urls ? (
+            {modelReady && urls && hasGlb ? (
               <ModelViewer
                 ref={viewerRef}
                 src={urls.glb}
-                iosSrc={!isManualModel || currentModel?.hasUsdz ? urls.usdz : undefined}
+                iosSrc={hasUsdz ? urls.usdz : undefined}
                 poster={isManualModel ? undefined : urls.poster}
                 alt="Үүсгэсэн 3D загвар"
                 ar
@@ -1650,6 +1690,8 @@ export default function MorphApp() {
                 shadowIntensity={0.3 + (roughness / 100) * 0.7}
                 className="vase-canvas"
               />
+            ) : modelReady && !hasGlb ? (
+              <UsdzOnlyPreview />
             ) : (
               <VaseScene
                 className="vase-canvas"
@@ -1663,7 +1705,7 @@ export default function MorphApp() {
             <span className="viewport-label">
               {modelReady
                 ? isManualModel
-                  ? "ГАРААР ОРУУЛСАН · GLB"
+                  ? `ГАРААР ОРУУЛСАН · ${modelFormats}`
                   : "MESHY AI · GLB"
                 : "ЖИШЭЭ ЗАГВАР"}
             </span>
@@ -1674,7 +1716,7 @@ export default function MorphApp() {
                   : `${(task?.creditsUsed ?? 0).toLocaleString()} CREDIT`
                 : "ЗАГВАР СОНГООГҮЙ"}
               <br />
-              GLB{!isManualModel || currentModel?.hasUsdz ? " · USDZ" : ""}
+              {modelFormats}
             </span>
             <div className="viewport-tools">
               <button className="active" aria-label="Эргүүлэх">
@@ -1882,11 +1924,11 @@ export default function MorphApp() {
         <main>
           <div className="ar-preview">
             <CornerFrame />
-            {modelReady && urls ? (
+            {modelReady && urls && hasGlb ? (
               <ModelViewer
                 ref={viewerRef}
                 src={urls.glb}
-                iosSrc={!isManualModel || currentModel?.hasUsdz ? urls.usdz : undefined}
+                iosSrc={hasUsdz ? urls.usdz : undefined}
                 poster={isManualModel ? undefined : urls.poster}
                 alt="AR-д бэлэн 3D загвар"
                 ar
@@ -1895,6 +1937,8 @@ export default function MorphApp() {
                 autoRotate
                 className="vase-canvas"
               />
+            ) : modelReady && !hasGlb ? (
+              <UsdzOnlyPreview />
             ) : (
               <VaseScene
                 className="vase-canvas ar-table-vase"
@@ -2080,7 +2124,16 @@ export default function MorphApp() {
                       {STATUS_LABEL[model.status]}
                     </em>
                     <small>
-                      GLB{model.kind !== "manual" || model.hasUsdz ? " · USDZ" : ""}
+                      {[
+                        model.kind !== "manual" || model.hasGlb !== false
+                          ? "GLB"
+                          : null,
+                        model.kind !== "manual" || model.hasUsdz
+                          ? "USDZ"
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </small>
                   </button>
                   <div className="model-card-copy">
@@ -2124,17 +2177,19 @@ export default function MorphApp() {
         <main>
           <div className="detail-visual">
             <CornerFrame />
-            {modelReady && urls ? (
+            {modelReady && urls && hasGlb ? (
               <ModelViewer
                 ref={viewerRef}
                 src={urls.glb}
-                iosSrc={!isManualModel || current?.hasUsdz ? urls.usdz : undefined}
+                iosSrc={hasUsdz ? urls.usdz : undefined}
                 poster={isManualModel ? undefined : urls.poster}
                 alt="3D загвар"
                 ar
                 autoRotate
                 className="vase-canvas"
               />
+            ) : modelReady && !hasGlb ? (
+              <UsdzOnlyPreview />
             ) : (
               <VaseScene className="vase-canvas" color="#e8e2d6" />
             )}
@@ -2171,7 +2226,7 @@ export default function MorphApp() {
             <div className="detail-specs">
               <span>
                 <b>ФОРМАТ</b>
-                GLB{!isManualModel || current?.hasUsdz ? " · USDZ" : ""}
+                {modelFormats}
               </span>
               <span>
                 <b>ЧАНАР</b>

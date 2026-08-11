@@ -41,14 +41,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const id =
-      format === "glb"
-        ? `${MANUAL_MODEL_PREFIX}${crypto.randomUUID()}`
-        : (body.id ?? "");
+    const id = body.id ?? `${MANUAL_MODEL_PREFIX}${crypto.randomUUID()}`;
     if (!isManualModelId(id)) {
       return Response.json({ error: "Загварын ID буруу байна." }, { status: 400 });
     }
-    if (format === "usdz" && !(await getManualModelMeta(id))) {
+    if (format === "usdz" && body.id && !(await getManualModelMeta(id))) {
       return Response.json({ error: "GLB загвар олдсонгүй." }, { status: 404 });
     }
 

@@ -74,6 +74,7 @@ export default function ArViewer({
   const platform = usePlatform(initialPlatform);
   const ready = Boolean(manual) || task?.status === "SUCCEEDED";
   const failed = task?.status === "FAILED" || task?.status === "CANCELED";
+  const hasGlb = !manual || manual.hasGlb !== false;
   const hasIosAsset = !manual || manual.hasUsdz;
 
   // Загвар бэлэн болтол төлөвийг тандана.
@@ -138,6 +139,10 @@ export default function ArViewer({
     // Scene Viewer-ийн Depth occlusion нь гүний мэдээлэл муу үед загварыг
     // бүхэлд нь нэвт харагдуулдаг. Explicit intent-ээр уг горимыг унтраана.
     if (platform === "android") {
+      if (!hasGlb) {
+        setNote("Энэ USDZ загвар зөвхөн iPhone AR-д ажиллана. Android-д GLB файл хэрэгтэй.");
+        return;
+      }
       if (viewer.current?.canActivateAR()) {
         viewer.current.activateAR();
         return;
@@ -150,7 +155,7 @@ export default function ArViewer({
       return;
     }
     setNote("AR горим зөвхөн iPhone эсвэл Android утсан дээр ажиллана.");
-  }, [launchIos, manual, platform, urls.glb]);
+  }, [hasGlb, launchIos, manual, platform, urls.glb]);
 
   return (
     <div className="ar-standalone">
@@ -276,20 +281,28 @@ export default function ArViewer({
       ) : (
         <>
           <div className="ar-standalone-stage">
-            <ModelViewer
-              ref={viewer}
-              src={urls.glb}
-              iosSrc={!manual || manual.hasUsdz ? urls.usdz : undefined}
-              poster={manual ? undefined : urls.poster}
-              alt="AR-д бэлэн 3D загвар"
-              ar
-              arScale="auto"
-              arModes={platform === "android" ? "webxr" : undefined}
-              autoRotate={arStatus !== "session-started"}
-              onArStatus={setArStatus}
-              onError={setNote}
-              className="ar-standalone-viewer"
-            />
+            {hasGlb ? (
+              <ModelViewer
+                ref={viewer}
+                src={urls.glb}
+                iosSrc={!manual || manual.hasUsdz ? urls.usdz : undefined}
+                poster={manual ? undefined : urls.poster}
+                alt="AR-д бэлэн 3D загвар"
+                ar
+                arScale="auto"
+                arModes={platform === "android" ? "webxr" : undefined}
+                autoRotate={arStatus !== "session-started"}
+                onArStatus={setArStatus}
+                onError={setNote}
+                className="ar-standalone-viewer"
+              />
+            ) : (
+              <div className="ar-standalone-state ar-usdz-only-state">
+                <Smartphone aria-hidden="true" />
+                <h1>USDZ · iPhone AR</h1>
+                <p>QR кодыг iPhone-оор уншуулж Quick Look-д нээнэ үү.</p>
+              </div>
+            )}
           </div>
 
           <div className="ar-standalone-panel">
@@ -322,9 +335,11 @@ export default function ArViewer({
             </ol>
 
             <div className="ar-standalone-links">
-              <a href={urls.glbDownload}>
-                <Download size={14} /> GLB
-              </a>
+              {hasGlb && (
+                <a href={urls.glbDownload}>
+                  <Download size={14} /> GLB
+                </a>
+              )}
               {(!manual || manual.hasUsdz) && (
                 <a href={urls.usdzDownload}>
                   <Download size={14} /> USDZ

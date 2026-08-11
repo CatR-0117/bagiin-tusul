@@ -34,6 +34,7 @@ export async function POST(request: Request) {
     const meta: ManualModelMeta = {
       id,
       name,
+      hasGlb: true,
       hasUsdz: false,
       createdAt,
     };

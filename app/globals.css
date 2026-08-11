@@ -3415,6 +3415,36 @@ input:focus-visible {
   inset: 0;
 }
 
+.usdz-only-preview {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(199, 255, 89, 0.1), transparent 45%);
+  color: var(--lime);
+  gap: 10px;
+  text-align: center;
+}
+
+.usdz-only-preview svg {
+  width: 42px;
+  height: 42px;
+}
+
+.usdz-only-preview b {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+
+.usdz-only-preview span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .morph-model-viewer {
   position: absolute;
   inset: 0;
@@ -3710,6 +3740,18 @@ input:focus-visible {
 .ar-standalone-viewer {
   position: absolute;
   inset: 0;
+}
+
+.ar-usdz-only-state {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(199, 255, 89, 0.1), transparent 42%);
+}
+
+.ar-usdz-only-state > svg {
+  width: 42px;
+  height: 42px;
+  color: var(--lime);
 }
 
 .ar-standalone-panel {

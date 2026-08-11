@@ -20,6 +20,8 @@ export type StoredModel = {
   kind?: "image-to-3d" | "multi-image-to-3d" | "manual";
   /** Гараар оруулсан загвар iOS-д зориулсан USDZ хувилбартай эсэх */
   hasUsdz?: boolean;
+  /** `false` бол USDZ-only загвар; хуучин бичлэгүүдэд байхгүй байж болно. */
+  hasGlb?: boolean;
   /** Vercel Blob руу оруулсан файлыг redirect алгасаж шууд ачаална. */
   glbUrl?: string;
   usdzUrl?: string;

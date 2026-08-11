@@ -3,6 +3,8 @@ import { env } from "cloudflare:workers";
 export type ManualModelMeta = {
   id: string;
   name: string;
+  /** Хуучин metadata-д байхгүй бол GLB-тэй гэж үзнэ. */
+  hasGlb?: boolean;
   hasUsdz: boolean;
   createdAt: number;
   /** Vercel Blob backend ашиглах үед нийтийн model URL-ууд. */

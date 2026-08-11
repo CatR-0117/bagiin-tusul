@@ -34,23 +34,24 @@ export async function POST(request: Request) {
       return Response.json({ error: "Model metadata буруу байна." }, { status: 400 });
     }
 
-    // Шинэ GLB-ийн metadata үүсгэхэд хуучин metadata хэрэггүй. Blob list + fetch
-    // гэсэн хоёр нэмэлт хүсэлтийг зөвхөн USDZ нэмэх үед хийнэ.
-    const current =
-      body.format === "usdz" ? await getManualModelMeta(body.id) : null;
+    // USDZ-ээр эхэлсэн model дээр дараа нь GLB нэмэх урсгалыг мөн хадгална.
+    const current = await getManualModelMeta(body.id);
     const meta: ManualModelMeta =
       body.format === "glb"
         ? {
+            ...current,
             id: body.id,
             name: body.fileName?.replace(/\.glb$/i, "") || "3D загвар",
-            hasUsdz: false,
-            createdAt: Date.now(),
+            hasGlb: true,
+            hasUsdz: current?.hasUsdz ?? false,
+            createdAt: current?.createdAt ?? Date.now(),
             glbUrl: body.url,
           }
         : {
             ...(current ?? {
               id: body.id,
-              name: "3D загвар",
+              name: body.fileName?.replace(/\.usdz$/i, "") || "3D загвар",
+              hasGlb: false,
               createdAt: Date.now(),
             }),
             hasUsdz: true,
