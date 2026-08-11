@@ -117,11 +117,16 @@ export default function ArViewer({
   const openAr = useCallback(() => {
     if (platform === "ios") {
       if (manual && !manual.hasUsdz) {
-        if (viewer.current?.canActivateAR()) {
-          viewer.current.activateAR();
-        } else {
-          setNote("iPhone AR файлыг бэлтгэж байна. Түр хүлээгээд дахин дарна уу.");
+        // `canActivateAR` нь iOS Quick Look дээр lifecycle/privacy шалтгаанаар
+        // түр false буцаах тохиолдолтой. activateAR нь хэрэглэгчийн click-тэй
+        // нэг мөчид дуудагдах ёстой тул завсрын шалгалтаар хаахгүй.
+        const generator = viewer.current;
+        if (!generator) {
+          setNote("AR үзүүлэгч ачаалагдсангүй. Хуудсаа дахин ачаална уу.");
+          return;
         }
+        setNote(null);
+        generator.activateAR();
       } else {
         launchIos();
       }
