@@ -219,6 +219,8 @@ export default function ArViewer({
               alt="AR-д бэлэн 3D загвар"
               ar
               arScale="auto"
+              shadowIntensity={0.28}
+              shadowSoftness={0.18}
               autoRotate={arStatus !== "session-started"}
               onArStatus={setArStatus}
               onError={setNote}

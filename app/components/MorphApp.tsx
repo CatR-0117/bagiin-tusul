@@ -1888,6 +1888,8 @@ export default function MorphApp() {
                 alt="AR-д бэлэн 3D загвар"
                 ar
                 arScale="auto"
+                shadowIntensity={0.28}
+                shadowSoftness={0.18}
                 autoRotate
                 className="vase-canvas"
               />

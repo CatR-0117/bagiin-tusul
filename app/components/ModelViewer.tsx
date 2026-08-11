@@ -57,6 +57,8 @@ export type ModelViewerProps = {
   exposure?: number;
   /** 0–1, шалны сүүдэр */
   shadowIntensity?: number;
+  /** 0 = хатуу, 1 = хамгийн бүдэг сүүдэр */
+  shadowSoftness?: number;
   environmentImage?: string;
   /** "auto" = бодит хэмжээ, "fixed" = тогтмол хэмжээ */
   arScale?: "auto" | "fixed";
@@ -80,6 +82,7 @@ const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
       cameraControls = true,
       exposure = 1,
       shadowIntensity = 0.85,
+      shadowSoftness = 1,
       environmentImage = "neutral",
       arScale = "auto",
       onArStatus,
@@ -173,6 +176,7 @@ const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
       alt,
       className: `morph-model-viewer ${className}`,
       "shadow-intensity": String(shadowIntensity),
+      "shadow-softness": String(shadowSoftness),
       exposure: String(exposure),
       "environment-image": environmentImage,
       "touch-action": "pan-y",
