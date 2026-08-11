@@ -29,7 +29,7 @@ const HINTS: Record<Platform, string[]> = {
   android: [
     "«Бодит орчинд байрлуулах» товчийг дарна",
     "Google Play Services for AR суусан байх шаардлагатай",
-    "Гадаргуу илэрмэгц дэлгэц дээр товшиж байрлуулна",
+    "Загварыг чирж шал, ширээний илэрсэн гадаргуу дээр тавина",
   ],
   desktop: [
     "AR горим зөвхөн утсан дээр ажиллана",
@@ -123,6 +123,10 @@ export default function ArViewer({
     // Scene Viewer-ийн Depth occlusion нь гүний мэдээлэл муу үед загварыг
     // бүхэлд нь нэвт харагдуулдаг. Explicit intent-ээр уг горимыг унтраана.
     if (platform === "android") {
+      if (viewer.current?.canActivateAR()) {
+        viewer.current.activateAR();
+        return;
+      }
       window.location.href = sceneViewerIntent(urls.glb);
       return;
     }
@@ -221,6 +225,7 @@ export default function ArViewer({
               alt="AR-д бэлэн 3D загвар"
               ar
               arScale="auto"
+              arModes={platform === "android" ? "webxr" : undefined}
               autoRotate={arStatus !== "session-started"}
               onArStatus={setArStatus}
               onError={setNote}

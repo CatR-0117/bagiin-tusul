@@ -3551,13 +3551,13 @@ input:focus-visible {
   position: relative;
   flex: 0 0 auto;
   padding: 10px;
-  background: var(--text);
+  background: #fff;
   line-height: 0;
 }
 
 .qr-canvas-wrap canvas {
   display: block;
-  width: clamp(150px, 15vw, 200px);
+  max-width: 100%;
   height: auto;
   image-rendering: pixelated;
 }
@@ -3706,12 +3706,6 @@ input:focus-visible {
 
 .ar-standalone-qr .qr-canvas-wrap {
   flex: 0 0 auto;
-}
-
-.ar-standalone-qr canvas {
-  display: block;
-  width: 156px;
-  height: 156px;
 }
 
 .ar-standalone-qr > div:last-child {

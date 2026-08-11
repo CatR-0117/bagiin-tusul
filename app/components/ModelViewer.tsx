@@ -60,6 +60,10 @@ export type ModelViewerProps = {
   environmentImage?: string;
   /** "auto" = бодит хэмжээ, "fixed" = тогтмол хэмжээ */
   arScale?: "auto" | "fixed";
+  /** Тухайн харагдацад зөвшөөрөх AR backend-үүд */
+  arModes?: string;
+  /** WebXR-ийн бодит орчны гэрлийн үнэлгээг ашиглах эсэх */
+  xrEnvironment?: boolean;
   onArStatus?: (status: string) => void;
   onLoad?: () => void;
   onError?: (message: string) => void;
@@ -82,6 +86,8 @@ const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
       shadowIntensity = 0.85,
       environmentImage = "neutral",
       arScale = "auto",
+      arModes = "webxr scene-viewer quick-look",
+      xrEnvironment = false,
       onArStatus,
       onLoad,
       onError,
@@ -189,10 +195,10 @@ const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
     }
     if (ar) {
       attributes.ar = "";
-      attributes["ar-modes"] = "webxr scene-viewer quick-look";
+      attributes["ar-modes"] = arModes;
       attributes["ar-scale"] = arScale;
       attributes["ar-placement"] = "floor";
-      attributes["xr-environment"] = "";
+      if (xrEnvironment) attributes["xr-environment"] = "";
     }
     if (ar && !showArButton) {
       // Өөрийн товчоо ашиглах үед model-viewer-ийн товчийг нуухдаа

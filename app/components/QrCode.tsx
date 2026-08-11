@@ -29,9 +29,13 @@ export default function QrCode({
         if (cancelled || !canvasRef.current) return;
         return QRCode.toCanvas(canvasRef.current, value, {
           width: size,
-          margin: 1,
+          // iPhone Camera нь Android-аас quiet zone багатай QR-д мэдрэмтгий.
+          // ISO/IEC 18004-ийн зөвлөмжийн дагуу дөрвөн модуль зай үлдээнэ.
+          margin: 4,
           errorCorrectionLevel: "M",
-          color: { dark: "#0b0c10", light: "#f4f1ea" },
+          // Хамгийн өндөр контраст нь дэлгэцийн гэрэл болон өнгөний профайлаас
+          // үл хамааран iOS Camera-д найдвартай танигдана.
+          color: { dark: "#000000", light: "#ffffff" },
         });
       })
       .catch(() => {
@@ -49,6 +53,7 @@ export default function QrCode({
         ref={canvasRef}
         width={size}
         height={size}
+        style={{ width: size, maxWidth: "100%", height: "auto" }}
         aria-label="AR холбоосын QR код"
       />
       {error && <span className="qr-error">{error}</span>}

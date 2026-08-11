@@ -1137,6 +1137,10 @@ export default function MorphApp() {
   const openAr = () => {
     if (!urls) return;
     if (platform === "android") {
+      if (viewerRef.current?.canActivateAR()) {
+        viewerRef.current.activateAR();
+        return;
+      }
       window.location.href = sceneViewerIntent(urls.glb);
       return;
     }
@@ -1887,6 +1891,7 @@ export default function MorphApp() {
                 alt="AR-д бэлэн 3D загвар"
                 ar
                 arScale="auto"
+                arModes={platform === "android" ? "webxr" : undefined}
                 autoRotate
                 className="vase-canvas"
               />
