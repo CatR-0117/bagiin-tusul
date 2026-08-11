@@ -668,6 +668,7 @@ export default function MorphApp() {
   const manualModelInput = useRef<HTMLInputElement>(null);
   const [manualUploading, setManualUploading] = useState(false);
   const [manualUploadProgress, setManualUploadProgress] = useState(0);
+  const [manualUploadStage, setManualUploadStage] = useState("Оруулж байна…");
 
   /* ---------------------------- Meshy төлөв ---------------------------- */
   // 1–4 эх зураг. Эргүүлэлт/тайралт нь эдгээрт бодитоор хэрэглэгдэнэ.
@@ -934,14 +935,16 @@ export default function MorphApp() {
     if (files.length === 0 || manualUploading) return;
 
     const glb = files.find((file) => file.name.toLowerCase().endsWith(".glb"));
-    const usdz = files.find((file) => file.name.toLowerCase().endsWith(".usdz"));
-    if (!glb && !usdz) {
+    const selectedUsdz = files.find((file) =>
+      file.name.toLowerCase().endsWith(".usdz"),
+    );
+    if (!glb && !selectedUsdz) {
       addToast("GLB эсвэл USDZ файл сонгоно уу");
       return;
     }
     if (
       (glb?.size ?? 0) > 250 * 1024 * 1024 ||
-      (usdz?.size ?? 0) > 250 * 1024 * 1024
+      (selectedUsdz?.size ?? 0) > 250 * 1024 * 1024
     ) {
       addToast("GLB болон USDZ файл тус бүр 250 MB-аас бага байх ёстой");
       return;
@@ -949,13 +952,34 @@ export default function MorphApp() {
 
     setManualUploading(true);
     setManualUploadProgress(0);
+    setManualUploadStage("Файл бэлтгэж байна…");
     setGenError(null);
     // GLB байгаа үед upload явах хооронд viewer script-ийг зэрэг татаж бэлдэнэ.
     if (glb) void loadModelViewer().catch(() => undefined);
     try {
+      let usdz = selectedUsdz;
+      const shouldConvert = Boolean(glb && !usdz);
+      if (glb && !usdz) {
+        setManualUploadStage("USDZ болгон хөрвүүлж байна…");
+        setManualUploadProgress(5);
+        const { convertGlbToUsdz } = await import("@/lib/glb-to-usdz");
+        usdz = await convertGlbToUsdz(glb);
+        if (usdz.size > 250 * 1024 * 1024) {
+          throw new Error("Үүссэн USDZ файл 250 MB-аас том байна.");
+        }
+        setManualUploadProgress(20);
+      }
+
+      setManualUploadStage("3D файлууд хадгалж байна…");
       const glbMeta = glb
         ? await uploadManualFile(glb, "glb", undefined, (value) =>
-            setManualUploadProgress(usdz ? Math.round(value * 0.7) : value),
+            setManualUploadProgress(
+              shouldConvert
+                ? 20 + Math.round(value * 0.55)
+                : usdz
+                  ? Math.round(value * 0.7)
+                  : value,
+            ),
           )
         : null;
 
@@ -970,7 +994,10 @@ export default function MorphApp() {
             glbMeta?.id,
             (value) =>
               setManualUploadProgress(
-                glb ? 70 + Math.round(value * 0.3) : value,
+                glb
+                  ? (shouldConvert ? 75 : 70) +
+                    Math.round(value * (shouldConvert ? 0.25 : 0.3))
+                  : value,
               ),
           );
           hasUsdz = true;
@@ -1019,6 +1046,7 @@ export default function MorphApp() {
     } finally {
       setManualUploading(false);
       setManualUploadProgress(0);
+      setManualUploadStage("Оруулж байна…");
     }
   };
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
@@ -1223,9 +1251,9 @@ export default function MorphApp() {
                     <SectionLabel>ШУУД AR ТУРШИЛТ</SectionLabel>
                     <h2>Бэлэн 3D загвар байна уу?</h2>
                     <p>
-                      GLB эсвэл USDZ файлаа дангаар нь, эсвэл хоёуланг нь хамт
-                      оруулж болно. USDZ-only загвар iPhone Quick Look-д шууд
-                      ажиллана. <strong>Файл тус бүр 250 MB хүртэл.</strong>
+                      GLB оруулахад USDZ хувилбарыг автоматаар үүсгэж хоёуланг
+                      нь хадгална. Бэлэн USDZ-г дангаар нь эсвэл GLB-тэй хамт
+                      оруулж бас болно. <strong>Файл тус бүр 250 MB хүртэл.</strong>
                     </p>
                   </div>
                   <Button
@@ -1239,7 +1267,7 @@ export default function MorphApp() {
                       <Upload size={17} />
                     )}
                     {manualUploading
-                      ? `Оруулж байна… ${manualUploadProgress}%`
+                      ? `${manualUploadStage} ${manualUploadProgress}%`
                       : "GLB / USDZ оруулах"}
                   </Button>
                 </div>
