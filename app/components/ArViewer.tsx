@@ -11,7 +11,12 @@ import {
 import { Camera, Download, RotateCcw, Smartphone } from "lucide-react";
 import ModelViewer, { type ModelViewerHandle } from "./ModelViewer";
 import QrCode from "./QrCode";
-import { absoluteUrl, modelUrls, usePlatform, type Platform } from "@/lib/models";
+import {
+  modelUrls,
+  sceneViewerIntent,
+  usePlatform,
+  type Platform,
+} from "@/lib/models";
 import type { PublicTask } from "@/lib/meshy";
 import type { ManualModelMeta } from "@/lib/manual-models";
 
@@ -115,20 +120,17 @@ export default function ArViewer({
       }
       return;
     }
+    // Scene Viewer-ийн Depth occlusion нь гүний мэдээлэл муу үед загварыг
+    // бүхэлд нь нэвт харагдуулдаг. Explicit intent-ээр уг горимыг унтраана.
+    if (platform === "android") {
+      window.location.href = sceneViewerIntent(urls.glb);
+      return;
+    }
     if (viewer.current?.canActivateAR()) {
       viewer.current.activateAR();
       return;
     }
-    // model-viewer AR-ыг идэвхжүүлж чадахгүй бол шууд файл руу шилжинэ.
-    if (platform === "android") {
-      const file = absoluteUrl(urls.glb);
-      window.location.href =
-        `intent://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(file)}` +
-        `&mode=ar_preferred&resizable=false#Intent;scheme=https;` +
-        `package=com.google.ar.core;action=android.intent.action.VIEW;end;`;
-    } else {
-      setNote("AR горим зөвхөн iPhone эсвэл Android утсан дээр ажиллана.");
-    }
+    setNote("AR горим зөвхөн iPhone эсвэл Android утсан дээр ажиллана.");
   }, [launchIos, manual, platform, urls.glb]);
 
   return (
@@ -219,8 +221,6 @@ export default function ArViewer({
               alt="AR-д бэлэн 3D загвар"
               ar
               arScale="auto"
-              shadowIntensity={0.28}
-              shadowSoftness={0.18}
               autoRotate={arStatus !== "session-started"}
               onArStatus={setArStatus}
               onError={setNote}

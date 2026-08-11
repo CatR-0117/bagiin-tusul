@@ -44,6 +44,23 @@ export function absoluteUrl(path: string) {
   return new URL(path, window.location.origin).toString();
 }
 
+/**
+ * Android Scene Viewer-ийг Depth occlusion-гүйгээр шууд AR горимд нээнэ.
+ * Depth map буруу тооцоологдох үед загвар бүхэлдээ нэвт харагдахээс сэргийлнэ.
+ */
+export function sceneViewerIntent(path: string) {
+  const file = absoluteUrl(path);
+  const fallback =
+    typeof window === "undefined" ? "/" : window.location.href;
+
+  return (
+    `intent://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(file)}` +
+    `&mode=ar_only&resizable=false&disable_occlusion=true#Intent;scheme=https;` +
+    `package=com.google.ar.core;action=android.intent.action.VIEW;` +
+    `S.browser_fallback_url=${encodeURIComponent(fallback)};end;`
+  );
+}
+
 /* ------------------------------- локал сан -------------------------------
  * localStorage бол React-ийн гадна орших "external store" тул
  * useSyncExternalStore-оор уншина. Ингэснээр SSR/hydration зөрөхгүй бөгөөд

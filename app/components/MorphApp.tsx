@@ -57,6 +57,7 @@ import {
   removeModel,
   renderForUpload,
   saveModel,
+  sceneViewerIntent,
   updateModel,
   useModels,
   usePlatform,
@@ -1134,19 +1135,17 @@ export default function MorphApp() {
 
   /** Утсан дээр шууд AR нээх, компьютер дээр зөвлөмж харуулах */
   const openAr = () => {
+    if (!urls) return;
+    if (platform === "android") {
+      window.location.href = sceneViewerIntent(urls.glb);
+      return;
+    }
     if (viewerRef.current?.canActivateAR()) {
       viewerRef.current.activateAR();
       return;
     }
-    if (!urls) return;
     if (platform === "ios") {
       window.location.href = urls.usdz;
-    } else if (platform === "android") {
-      const file = absoluteUrl(urls.glb);
-      window.location.href =
-        `intent://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(file)}` +
-        `&mode=ar_preferred&resizable=false#Intent;scheme=https;` +
-        `package=com.google.ar.core;action=android.intent.action.VIEW;end;`;
     } else {
       addToast("QR кодыг утсаараа уншуулна уу");
     }
@@ -1888,8 +1887,6 @@ export default function MorphApp() {
                 alt="AR-д бэлэн 3D загвар"
                 ar
                 arScale="auto"
-                shadowIntensity={0.28}
-                shadowSoftness={0.18}
                 autoRotate
                 className="vase-canvas"
               />
