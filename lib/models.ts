@@ -22,8 +22,9 @@ export type StoredModel = {
   hasUsdz?: boolean;
   /** `false` бол USDZ-only загвар; хуучин бичлэгүүдэд байхгүй байж болно. */
   hasGlb?: boolean;
-  /** Vercel Blob руу оруулсан файлыг redirect алгасаж шууд ачаална. */
+  /** Vercel Blob руу оруулсан GLB-г web viewer шууд ачаална. */
   glbUrl?: string;
+  /** Server талд хадгалсан USDZ Blob URL; Quick Look-д inline API route ашиглана. */
   usdzUrl?: string;
   /** Хэдэн эх зурагнаас үүсгэсэн */
   sourceCount?: number;
@@ -39,7 +40,9 @@ export function modelUrls(
 ) {
   return {
     glb: direct?.glbUrl ?? `/api/model/${id}/model.glb`,
-    usdz: direct?.usdzUrl ?? `/api/model/${id}/model.usdz`,
+    // Vercel Blob нь USDZ-г `attachment` гэж өгдөг тул iPhone Quick Look
+    // үргэлж Content-Disposition: inline тохируулдаг манай route-аар нээнэ.
+    usdz: `/api/model/${id}/model.usdz`,
     poster: `/api/model/${id}/preview.png`,
     glbDownload: `/api/model/${id}/model.glb?dl=1`,
     usdzDownload: `/api/model/${id}/model.usdz?dl=1`,

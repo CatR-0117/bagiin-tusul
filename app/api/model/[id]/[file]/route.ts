@@ -28,6 +28,49 @@ const MANUAL_FILES: Record<string, string> = {
   "model.usdz": "model/vnd.usdz+zip",
 };
 
+function isPublicVercelBlobUrl(target: string) {
+  try {
+    const url = new URL(target);
+    return (
+      url.protocol === "https:" &&
+      url.hostname.endsWith(".public.blob.vercel-storage.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function manualAssetHeaders(
+  request: Request,
+  file: string,
+  contentType: string,
+  upstream?: Headers,
+) {
+  const headers = new Headers();
+  headers.set("Content-Type", contentType);
+  headers.set("Cache-Control", "public, max-age=31536000, immutable");
+  headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Accept-Ranges", upstream?.get("accept-ranges") ?? "bytes");
+  headers.set("X-Content-Type-Options", "nosniff");
+
+  const download = new URL(request.url).searchParams.get("dl") === "1";
+  headers.set(
+    "Content-Disposition",
+    `${download ? "attachment" : "inline"}; filename="${file}"`,
+  );
+
+  for (const name of [
+    "content-length",
+    "content-range",
+    "etag",
+    "last-modified",
+  ]) {
+    const value = upstream?.get(name);
+    if (value) headers.set(name, value);
+  }
+  return headers;
+}
+
 async function serveManual(
   request: Request,
   id: string,
@@ -41,8 +84,29 @@ async function serveManual(
     const { getManualModelMeta } = await import("@/lib/manual-models");
     const meta = await getManualModelMeta(id);
     const target = file === "model.glb" ? meta?.glbUrl : meta?.usdzUrl;
-    if (!target) return new Response("Not found", { status: 404 });
-    return Response.redirect(target, 307);
+    if (!target || !isPublicVercelBlobUrl(target)) {
+      return new Response("Not found", { status: 404 });
+    }
+
+    // Vercel Blob нь USDZ-г default-аар `attachment` гэж өгдөг. Redirect
+    // хийвэл iPhone Quick Look-ийн оронд download эхэлдэг тул body-г stream
+    // хийн, Content-Disposition-ийг энэ route дээр `inline` болгон солино.
+    const range = request.headers.get("range");
+    const upstream = await fetch(target, {
+      method: head ? "HEAD" : "GET",
+      headers: range ? { Range: range } : undefined,
+      cache: "no-store",
+    });
+    if (!upstream.ok) {
+      return new Response("Файл татахад алдаа гарлаа.", {
+        status: upstream.status,
+      });
+    }
+
+    return new Response(head ? null : upstream.body, {
+      status: upstream.status,
+      headers: manualAssetHeaders(request, file, contentType, upstream.headers),
+    });
   }
 
   const range = request.headers.get("range");
@@ -54,17 +118,10 @@ async function serveManual(
 
   const headers = new Headers();
   object.writeHttpMetadata(headers);
-  headers.set("Content-Type", contentType);
-  headers.set("Cache-Control", "public, max-age=31536000, immutable");
-  headers.set("Access-Control-Allow-Origin", "*");
-  headers.set("Accept-Ranges", "bytes");
+  manualAssetHeaders(request, file, contentType).forEach((value, name) => {
+    headers.set(name, value);
+  });
   headers.set("ETag", object.httpEtag);
-
-  const download = new URL(request.url).searchParams.get("dl") === "1";
-  headers.set(
-    "Content-Disposition",
-    `${download ? "attachment" : "inline"}; filename="${file}"`,
-  );
 
   let status = 200;
   if (range && object.range) {

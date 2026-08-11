@@ -11,7 +11,6 @@ export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ ar?: string }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -29,9 +28,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function ArPage({ params, searchParams }: Props) {
+export default async function ArPage({ params }: Props) {
   const { id } = await params;
-  const { ar } = await searchParams;
   const requestHeaders = await headers();
   const host =
     requestHeaders.get("x-forwarded-host") ??
@@ -40,8 +38,7 @@ export default async function ArPage({ params, searchParams }: Props) {
   const protocol =
     requestHeaders.get("x-forwarded-proto") ??
     (host.startsWith("localhost") ? "http" : "https");
-  const pageUrl = `${protocol}://${host}/ar/${encodeURIComponent(id)}?ar=1`;
-  const autoLaunch = ar === "1";
+  const pageUrl = `${protocol}://${host}/ar/${encodeURIComponent(id)}`;
   const initialPlatform = platformFromUserAgent(
     requestHeaders.get("user-agent") ?? "",
   );
@@ -54,7 +51,6 @@ export default async function ArPage({ params, searchParams }: Props) {
         initial={null}
         manual={manual}
         pageUrl={pageUrl}
-        autoLaunch={autoLaunch}
         initialPlatform={initialPlatform}
       />
     );
@@ -70,7 +66,6 @@ export default async function ArPage({ params, searchParams }: Props) {
       initial={initial}
       manual={null}
       pageUrl={pageUrl}
-      autoLaunch={autoLaunch}
       initialPlatform={initialPlatform}
     />
   );

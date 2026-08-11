@@ -48,14 +48,12 @@ export default function ArViewer({
   initial,
   manual,
   pageUrl,
-  autoLaunch,
   initialPlatform,
 }: {
   id: string;
   initial: PublicTask | null;
   manual: ManualModelMeta | null;
   pageUrl: string;
-  autoLaunch: boolean;
   initialPlatform: Platform;
 }) {
   const urls = modelUrls(id, manual ?? undefined);
@@ -64,7 +62,6 @@ export default function ArViewer({
   const [task, setTask] = useState<PublicTask | null>(initial);
   const [arStatus, setArStatus] = useState<string>("not-presenting");
   const [note, setNote] = useState<string | null>(null);
-  const [autoOpening, setAutoOpening] = useState(false);
   const [generatedArReady, setGeneratedArReady] = useState(false);
   const hydrated = useSyncExternalStore(
     noopSubscribe,
@@ -99,41 +96,18 @@ export default function ArViewer({
     return () => window.clearInterval(timer);
   }, [id, manual, task?.status]);
 
-  const launchIos = useCallback(() => {
-    window.sessionStorage.setItem(`snapar.quick-look.${id}`, "opened");
-    window.location.assign(urls.usdz);
-  }, [id, urls.usdz]);
-
-  // QR-аар орсон iPhone хэрэглэгчийг GLB viewer ачаалуулахгүйгээр Quick Look
-  // руу шууд шилжүүлнэ. Safari автомат шилжилтийг хоригловол том товч үлдэнэ.
-  useEffect(() => {
-    if (!autoLaunch || platform !== "ios" || !ready || !hasIosAsset) return;
-    const key = `snapar.quick-look.${id}`;
-    if (window.sessionStorage.getItem(key) === "opened") return;
-
-    const timer = window.setTimeout(() => {
-      setAutoOpening(true);
-      launchIos();
-    }, 450);
-    return () => window.clearTimeout(timer);
-  }, [autoLaunch, hasIosAsset, id, launchIos, platform, ready]);
-
   const openAr = useCallback(() => {
     if (platform === "ios") {
-      if (manual && !manual.hasUsdz) {
-        // `canActivateAR` нь iOS Quick Look дээр lifecycle/privacy шалтгаанаар
-        // түр false буцаах тохиолдолтой. activateAR нь хэрэглэгчийн click-тэй
-        // нэг мөчид дуудагдах ёстой тул завсрын шалгалтаар хаахгүй.
-        const generator = viewer.current;
-        if (!generator) {
-          setNote("AR үзүүлэгч ачаалагдсангүй. Хуудсаа дахин ачаална уу.");
-          return;
-        }
-        setNote(null);
-        generator.activateAR();
-      } else {
-        launchIos();
+      // Хадгалсан USDZ-тэй үед iOS салбар нь Apple-ийн шаарддаг `rel="ar"`
+      // холбоосыг шууд render хийдэг. Энд зөвхөн runtime-д USDZ үүсгэдэг
+      // model-viewer урсгал орж ирнэ.
+      const generator = viewer.current;
+      if (!generator) {
+        setNote("AR үзүүлэгч ачаалагдсангүй. Хуудсаа дахин ачаална уу.");
+        return;
       }
+      setNote(null);
+      generator.activateAR();
       return;
     }
     // Scene Viewer-ийн Depth occlusion нь гүний мэдээлэл муу үед загварыг
@@ -155,7 +129,7 @@ export default function ArViewer({
       return;
     }
     setNote("AR горим зөвхөн iPhone эсвэл Android утсан дээр ажиллана.");
-  }, [hasGlb, launchIos, manual, platform, urls.glb]);
+  }, [hasGlb, platform, urls.glb]);
 
   return (
     <div className="ar-standalone">
@@ -206,32 +180,29 @@ export default function ArViewer({
                 <Camera />
               </span>
               <span className="ar-ios-kicker">IPHONE · QUICK LOOK</span>
-              <h1>{autoOpening ? "AR нээж байна…" : "AR-д бэлэн боллоо"}</h1>
+              <h1>AR-д бэлэн боллоо</h1>
               <p>
                 Камер нээгдсэний дараа утсаа аажим хөдөлгөж гадаргуу илрүүлээд
                 загвараа байрлуулаарай.
               </p>
               <a
-                className="ar-standalone-cta"
+                className="ar-standalone-cta quick-look-link"
                 href={urls.usdz}
                 rel="ar"
-                onClick={() => {
-                  window.sessionStorage.setItem(
-                    `snapar.quick-look.${id}`,
-                    "opened",
-                  );
-                }}
+                aria-label="AR-г шууд нээх"
               >
                 <Image
                   className="ar-quick-look-trigger-image"
                   src="/ar-coffee-table.avif"
-                  width={1}
-                  height={1}
+                  width={22}
+                  height={22}
                   alt=""
                 />
-                <Smartphone size={19} /> AR-Г ШУУД НЭЭХ
               </a>
-              <small>Автоматаар нээгдэхгүй бол дээрх товчийг нэг удаа дарна уу.</small>
+              <small>
+                Дээрх товчийг нэг удаа дарахад файл татахгүйгээр iPhone Quick
+                Look нээгдэнэ.
+              </small>
             </>
           ) : (
             <>

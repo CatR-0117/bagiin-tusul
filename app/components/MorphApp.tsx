@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import {
   ArrowLeft,
   ArrowRight,
@@ -353,6 +354,31 @@ function Button({
     <button className={`button button-${variant} ${className}`} {...props}>
       {children}
     </button>
+  );
+}
+
+function QuickLookLink({
+  href,
+  className = "",
+}: {
+  href: string;
+  className?: string;
+}) {
+  return (
+    <a
+      className={`button button-primary quick-look-link ${className}`}
+      href={href}
+      rel="ar"
+      aria-label="Бодит орчинд байрлуулах"
+    >
+      <Image
+        className="ar-quick-look-trigger-image"
+        src="/ar-coffee-table.avif"
+        width={22}
+        height={22}
+        alt=""
+      />
+    </a>
   );
 }
 
@@ -1152,9 +1178,7 @@ export default function MorphApp() {
     [go],
   );
 
-  const arLink = taskId
-    ? `${absoluteUrl(modelUrls(taskId).arPage)}?ar=1`
-    : "";
+  const arLink = taskId ? absoluteUrl(modelUrls(taskId).arPage) : "";
 
   const copyLink = async () => {
     if (!arLink) {
@@ -1198,6 +1222,17 @@ export default function MorphApp() {
   /** Утсан дээр шууд AR нээх, компьютер дээр зөвлөмж харуулах */
   const openAr = () => {
     if (!urls) return;
+    if (platform === "ios") {
+      const generator = viewerRef.current;
+      if (!generator) {
+        addToast("AR үзүүлэгч ачаалагдсангүй. Хуудсаа дахин ачаална уу.");
+        return;
+      }
+      // Runtime USDZ үүсгэх model-viewer урсгал хэрэглэгчийн click-тэй нэг
+      // мөчид эхлэх ёстой. Хадгалсан USDZ-г UI дээр `rel="ar"` link нээнэ.
+      generator.activateAR();
+      return;
+    }
     if (platform === "android") {
       if (!hasGlb) {
         addToast("Android AR-д GLB файл хэрэгтэй");
@@ -1214,11 +1249,7 @@ export default function MorphApp() {
       viewerRef.current.activateAR();
       return;
     }
-    if (platform === "ios") {
-      window.location.href = urls.usdz;
-    } else {
-      addToast("QR кодыг утсаараа уншуулна уу");
-    }
+    addToast("QR кодыг утсаараа уншуулна уу");
   };
 
   const renderLanding = () => (
@@ -2001,11 +2032,13 @@ export default function MorphApp() {
               </p>
             </div>
 
-            {platform !== "desktop" && (
+            {platform === "ios" && modelReady && hasUsdz && urls ? (
+              <QuickLookLink href={urls.usdz} className="ar-launch" />
+            ) : platform !== "desktop" ? (
               <Button className="ar-launch" onClick={openAr} disabled={!modelReady}>
                 <Smartphone size={16} /> Бодит орчинд байрлуулах
               </Button>
-            )}
+            ) : null}
 
             {platform === "desktop" && (
               <div className="qr-row">
