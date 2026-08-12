@@ -66,12 +66,11 @@ export async function convertGlbToUsdz(glb: File): Promise<File> {
     result.scene.updateMatrixWorld(true);
 
     const exporter = new USDZExporter();
-    exporter.setTextureUtils(WebGLTextureUtils);
+    exporter.textureUtils = WebGLTextureUtils;
     const bytes = await exporter.parseAsync(result.scene, {
       quickLookCompatible: true,
       includeAnchoringProperties: true,
       maxTextureSize: 2048,
-      animations: result.animations,
     });
     if (bytes.byteLength === 0) {
       throw new Error("USDZ файл хоосон үүслээ.");

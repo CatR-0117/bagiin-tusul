@@ -1,10 +1,3 @@
-import {
-  DEFAULT_DEVICE_SIZES,
-  DEFAULT_IMAGE_SIZES,
-  handleImageOptimization,
-} from "vinext/server/image-optimization";
-import handler from "vinext/server/app-router-entry";
-
 interface Env {
   ASSETS: {
     fetch(request: Request): Promise<Response>;
@@ -33,9 +26,24 @@ const worker = {
     env: Env,
     ctx: WorkerExecutionContext,
   ): Promise<Response> {
+    // Workerd currently exposes a stubbed console.createTask() that throws.
+    // React development builds feature-detect it by presence, so hide the stub
+    // before loading the RSC runtime. Production builds do not need this shim.
+    if (process.env.NODE_ENV !== "production") {
+      Object.defineProperty(console, "createTask", {
+        configurable: true,
+        value: undefined,
+      });
+    }
+
     const url = new URL(request.url);
 
     if (url.pathname === "/_vinext/image") {
+      const {
+        DEFAULT_DEVICE_SIZES,
+        DEFAULT_IMAGE_SIZES,
+        handleImageOptimization,
+      } = await import("vinext/server/image-optimization");
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
       return handleImageOptimization(
         request,
@@ -53,6 +61,7 @@ const worker = {
       );
     }
 
+    const { default: handler } = await import("vinext/server/app-router-entry");
     return handler.fetch(request, env, ctx);
   },
 };

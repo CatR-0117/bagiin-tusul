@@ -14,6 +14,10 @@ export default defineConfig(async () => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    // Workerd exposes a createTask stub that throws, while React only checks
+    // whether the property exists. Compile the feature detection to the safe
+    // fallback until the runtime implements the API.
+    define: { "console.createTask": "undefined" },
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,

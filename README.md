@@ -1,37 +1,200 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SnapAR
 
-## Getting Started
+SnapAR is a functional MVP for turning a product image into an interactive 3D model and a shareable mobile AR experience. Users can create an account, upload directly to Cloudflare R2, start an image-to-3D job, monitor generation, inspect the resulting GLB, download it, and share an `/ar/[projectId]` QR route.
 
-First, run the development server:
+The app also has a zero-configuration development mode. When Supabase, R2, or an AI provider is unavailable, the account screen opens a demo workspace, uploads use an in-memory local adapter, and the generation pipeline returns the bundled `public/demo/model.glb` sample after simulated workflow stages.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Architecture
+
+```text
+Browser
+  ├─ Supabase Auth (PKCE + secure SSR cookies)
+  ├─ POST /api/upload-url
+  └─ direct presigned PUT ───────────────────────► Cloudflare R2
+                                                    images / GLB / USDZ
+Next.js App Router
+  ├─ protected pages + API ownership checks
+  ├─ provider-agnostic image-to-3D orchestration
+  ├─ signed R2 GET URLs generated on demand
+  └─ Supabase PostgreSQL ────────────────────────► project keys + metadata
+
+Desktop model page ── QR /ar/[projectId] ──► mobile model-viewer ──► AR
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+PostgreSQL stores only object keys and metadata. Image, GLB, USDZ, and thumbnail bytes are never stored in the database. The private bucket URL is never placed in the QR code.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tech stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Next.js 16 App Router, React 19, strict TypeScript
+- Tailwind CSS 4 plus product-specific CSS
+- Supabase Auth, PostgreSQL, and Row Level Security
+- Cloudflare R2 through the AWS S3 SDK and presigned URLs
+- `@google/model-viewer` for interactive 3D and native AR launch
+- `qrcode.react` for AR route QR codes
+- Zod for client and server validation
+- Vinext/Cloudflare Sites build plus a Vercel-compatible Next.js build
 
-## Learn More
+## Local setup
 
-To learn more about Next.js, take a look at the following resources:
+Requirements: Node.js 20 or newer and npm.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Open the local URL printed by the development server. With blank service credentials and `USE_MOCK_AI=true`, choose **Enter demo workspace** and test the complete workflow without external services.
 
-## Deploy on Vercel
+Useful checks:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npx tsc --noEmit
+npm run lint
+npm run build
+npm run build:next
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# bagiin-tusul
+## Supabase setup
+
+1. Create a Supabase project.
+2. Copy the Project URL and publishable key from the project Connect dialog into `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+3. Copy the server-only service-role key into `SUPABASE_SERVICE_ROLE_KEY`. Never prefix it with `NEXT_PUBLIC_`.
+4. In the SQL Editor, run [`supabase/migrations/20260812000000_create_projects.sql`](supabase/migrations/20260812000000_create_projects.sql).
+5. Set the Auth Site URL to the app origin. Add both the local and production callback URLs to the Auth redirect allow list:
+
+```text
+http://localhost:3000/auth/callback
+https://your-domain.example/auth/callback
+```
+
+If the Supabase CLI is available, the same migration can be applied with `supabase db push` after linking the project.
+
+## Database and RLS
+
+The migration creates `public.projects`, the requested status constraint, an ownership/date index, an automatic `updated_at` trigger, and four RLS policies:
+
+- select only when `auth.uid() = user_id`
+- insert only when `auth.uid() = user_id`
+- update only when `auth.uid() = user_id`
+- delete only when `auth.uid() = user_id`
+
+API handlers also derive the user ID from a verified Supabase claim and repeat ownership checks server-side. The service-role client is limited to the server-only public AR lookup for a project explicitly marked `is_public`.
+
+## Email confirmation
+
+For SSR confirmation links, update the **Confirm signup** email template in Supabase Auth to:
+
+```text
+{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email
+```
+
+The `/auth/confirm` handler verifies the token and stores the session in SSR cookies.
+
+## Google OAuth
+
+1. Create a Web OAuth client in Google Cloud.
+2. Add your app origins to **Authorized JavaScript origins**.
+3. Add the Supabase callback URL shown on the Supabase Google provider screen to **Authorized redirect URIs**. It normally looks like `https://PROJECT_REF.supabase.co/auth/v1/callback`.
+4. Enable Google under Supabase **Authentication → Providers** and enter the Google client ID and secret.
+5. Keep the SnapAR `/auth/callback` URLs in the Supabase redirect allow list so the PKCE code can be exchanged for a cookie session.
+
+## Cloudflare R2 setup
+
+1. Create one private R2 bucket.
+2. Create an R2 API token scoped to read/write objects in only that bucket.
+3. Put the account ID, access key, secret key, and bucket name in `.env.local`.
+4. Do not expose the secret key in a browser variable.
+
+SnapAR generates keys on the server:
+
+```text
+uploads/{userId}/{projectId}/source.{jpg|png|webp}
+models/{userId}/{projectId}/model.glb
+models/{userId}/{projectId}/model.usdz
+thumbnails/{userId}/{projectId}/preview.webp
+```
+
+### R2 CORS
+
+Direct browser PUT requests need bucket CORS. Replace the origins with the exact development and production origins:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://your-domain.example"
+    ],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedHeaders": ["Content-Type"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Uploaded images are limited to matching JPG/JPEG, PNG, or WebP MIME/extension pairs and 10 MB. The browser receives only an expiring PUT URL and a server-generated key.
+
+## Mock AI mode
+
+Set:
+
+```env
+USE_MOCK_AI=true
+```
+
+The mock provider is implemented in `lib/ai/mock-provider.ts`. It simulates preparing, geometry, processing, and finalization stages, then returns the bundled demo GLB. Set `USE_MOCK_AI=false` only after the real provider variables are configured.
+
+Regenerate the bundled sample GLB if needed:
+
+```bash
+node scripts/create-demo-glb.mjs
+```
+
+## Connect a real image-to-3D API
+
+The UI and API routes depend only on the normalized contract in `lib/ai/provider.ts`:
+
+```ts
+type GenerationJob = {
+  jobId: string
+  status: "queued" | "processing" | "completed" | "failed"
+}
+
+type GenerationResult = {
+  glbUrl: string
+  usdzUrl?: string
+  thumbnailUrl?: string
+}
+```
+
+The included HTTP adapter expects:
+
+- `POST {AI_API_BASE_URL}/generate` with `{ "image_url": "SIGNED_SOURCE_URL" }`
+- `GET {AI_API_BASE_URL}/jobs/{jobId}`
+- snake_case responses such as `job_id`, `glb_url`, `usdz_url`, and `thumbnail_url`
+- `Authorization: Bearer {AI_API_KEY}`
+
+If a provider uses different endpoints or response fields, update only `lib/ai/http-provider.ts` or add another `ImageTo3DProvider`. Components and project routes should remain provider-independent.
+
+When a job completes, the status endpoint downloads each provider result server-side and writes it to deterministic R2 keys. Polling is idempotent: an already-ready project immediately returns its saved state, while concurrent finalization can only overwrite the same object keys.
+
+## Deployment to Vercel
+
+1. Import the repository into Vercel.
+2. The included `vercel.json` selects Next.js and runs `npm run build:next`.
+3. Add every variable from `.env.example` under Project Settings. Keep `SUPABASE_SERVICE_ROLE_KEY`, `R2_SECRET_ACCESS_KEY`, and `AI_API_KEY` server-only.
+4. Add the production origin to Supabase redirects, Google OAuth origins, and R2 CORS.
+5. Set `NEXT_PUBLIC_APP_URL` to the production origin so generated QR routes use the correct host.
+6. Deploy, then verify signup, direct upload, generation polling, GLB access, and AR from a real phone.
+
+## Security notes
+
+- Protected browser routes are refreshed and gated by Next.js 16 `proxy.ts` using verified Supabase claims.
+- Every mutation endpoint repeats authentication and project ownership checks.
+- User IDs and object keys are never trusted from browser input.
+- Signed download URLs are generated on demand and are not stored in PostgreSQL.
+- Project deletion attempts every object cleanup independently, then removes the metadata record.
+- Provider and storage secrets remain server-side.
+
