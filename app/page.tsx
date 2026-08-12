@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Box, Check, Image as ImageIcon, ScanLine, ShieldCheck, Sparkles, Upload } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
+import { InteractivePreview } from "@/components/landing/interactive-preview";
 import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -58,13 +59,7 @@ export default async function HomePage() {
       </section>
 
       <section className="feature-section" id="features">
-        <div className="feature-visual">
-          <div className="viewer-shell">
-            <div className="viewer-top"><span><i /> LIVE PREVIEW</span><small>GLB · PBR</small></div>
-            <div className="viewer-object"><span /><span /><span /></div>
-            <div className="viewer-controls"><button>−</button><button>↻</button><button>+</button></div>
-          </div>
-        </div>
+        <div className="feature-visual"><InteractivePreview /></div>
         <div className="feature-copy">
           <span className="eyebrow">Built for real workflows</span>
           <h2>Private by default.<br />Ready to share.</h2>
@@ -85,4 +80,3 @@ export default async function HomePage() {
     </main>
   );
 }
-

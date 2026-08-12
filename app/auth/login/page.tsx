@@ -20,6 +20,8 @@ export default async function LoginPage({
     ? "Google sign-in could not be completed. Please try again."
     : query.error === "confirmation"
       ? "That confirmation link is invalid or expired."
+      : query.error === "recovery"
+        ? "Open the recovery link from your email before choosing a new password."
       : undefined;
 
   return (
@@ -28,4 +30,3 @@ export default async function LoginPage({
     </AuthShell>
   );
 }
-

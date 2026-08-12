@@ -1,6 +1,6 @@
 # SnapAR
 
-SnapAR is a functional MVP for turning a product image into an interactive 3D model and a shareable mobile AR experience. Users can create an account, upload directly to Cloudflare R2, start an image-to-3D job, monitor generation, inspect the resulting GLB, download it, and share an `/ar/[projectId]` QR route.
+SnapAR is a functional MVP for turning a product image into an interactive 3D model and a shareable mobile AR experience. Users can create an account, recover or change their password, manage their profile, upload directly to Cloudflare R2, start an image-to-3D job, monitor generation, inspect and download the resulting GLB, and share an `/ar/[projectId]` QR route.
 
 The app also has a zero-configuration development mode. When Supabase, R2, or an AI provider is unavailable, the account screen opens a demo workspace, uploads use an in-memory local adapter, and the generation pipeline returns the bundled `public/demo/model.glb` sample after simulated workflow stages.
 
@@ -197,4 +197,3 @@ When a job completes, the status endpoint downloads each provider result server-
 - Signed download URLs are generated on demand and are not stored in PostgreSQL.
 - Project deletion attempts every object cleanup independently, then removes the metadata record.
 - Provider and storage secrets remain server-side.
-

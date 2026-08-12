@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const DEMO_USER_ID = "00000000-0000-4000-8000-000000000001";
 export const DEMO_SESSION_COOKIE = "snapar-demo-session";
+export const DEMO_NAME_COOKIE = "snapar-demo-name";
 
 export type AppUser = {
   id: string;
@@ -17,10 +18,11 @@ export async function getCurrentUser(): Promise<AppUser | null> {
   if (!isSupabaseConfigured()) {
     const cookieStore = await cookies();
     if (!cookieStore.get(DEMO_SESSION_COOKIE)?.value) return null;
+    const demoName = cookieStore.get(DEMO_NAME_COOKIE)?.value;
     return {
       id: DEMO_USER_ID,
       email: "maker@snapar.demo",
-      name: "Demo Maker",
+      name: demoName?.slice(0, 60) || "Demo Maker",
       isDemo: true,
     };
   }
@@ -52,4 +54,3 @@ export async function requireUser(returnTo = "/dashboard") {
   }
   return user;
 }
-

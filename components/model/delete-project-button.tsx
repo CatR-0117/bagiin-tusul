@@ -8,14 +8,20 @@ export function DeleteProjectButton({ projectId }: { projectId: string }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function remove() {
     setPending(true);
+    setError(null);
     const response = await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
     if (response.ok) {
       router.replace("/dashboard");
       router.refresh();
-    } else setPending(false);
+    } else {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      setError(payload?.error ?? "The project could not be deleted.");
+      setPending(false);
+    }
   }
 
   if (confirming) {
@@ -24,9 +30,9 @@ export function DeleteProjectButton({ projectId }: { projectId: string }) {
         <span>Delete this project and all files?</span>
         <button type="button" onClick={remove} disabled={pending}>{pending ? <Loader2 className="spin" size={15} /> : null} Yes, delete</button>
         <button type="button" onClick={() => setConfirming(false)} disabled={pending}>Cancel</button>
+        {error && <small role="alert">{error}</small>}
       </div>
     );
   }
   return <button className="danger-button" type="button" onClick={() => setConfirming(true)}><Trash2 size={16} /> Delete project</button>;
 }
-

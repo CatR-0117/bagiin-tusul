@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { DEMO_SESSION_COOKIE } from "@/lib/auth";
+import { DEMO_NAME_COOKIE, DEMO_SESSION_COOKIE } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/config";
 
 export async function POST() {
@@ -27,6 +27,12 @@ export async function DELETE() {
     path: "/",
     maxAge: 0,
   });
+  response.cookies.set(DEMO_NAME_COOKIE, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 0,
+  });
   return response;
 }
-

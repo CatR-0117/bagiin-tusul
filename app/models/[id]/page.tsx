@@ -32,7 +32,7 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ id
         <header className="model-detail-header">
           <div><div className="title-status"><ProjectStatusBadge status={project.status} /><span>{project.id.slice(0, 8).toUpperCase()}</span></div><h1>{project.title || "Untitled model"}</h1><p><CalendarDays size={15} /> Created {new Date(project.created_at).toLocaleDateString("en", { month: "long", day: "numeric", year: "numeric" })}</p></div>
           <div className="detail-actions">
-            {urls.glbUrl && <a className="button button-secondary" href={urls.glbUrl} download><Download size={16} /> Download GLB</a>}
+            {urls.glbUrl && <a className="button button-secondary" href={`/api/projects/${project.id}/download?format=glb`}><Download size={16} /> Download GLB</a>}
             {project.status === "ready" && <Link className="button button-primary" href={`/ar/${project.id}`}><ScanLine size={16} /> View in AR</Link>}
           </div>
         </header>

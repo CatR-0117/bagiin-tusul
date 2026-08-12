@@ -1,0 +1,22 @@
+import { AppShell } from "@/components/layout/app-shell";
+import { AccountSettingsForm } from "@/components/account/account-settings-form";
+import { requireUser } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
+
+export default async function AccountSettingsPage() {
+  const user = await requireUser("/account/settings");
+  return (
+    <AppShell user={user}>
+      <div className="settings-page page-enter">
+        <header>
+          <span className="eyebrow">Account</span>
+          <h1>Workspace settings</h1>
+          <p>Manage your profile and account security.</p>
+        </header>
+        <AccountSettingsForm initialName={user.name} email={user.email} isDemo={user.isDemo} />
+      </div>
+    </AppShell>
+  );
+}
+

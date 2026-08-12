@@ -15,11 +15,17 @@ export async function createUploadUrl(
   return getSignedUrl(getR2Client(), command, { expiresIn });
 }
 
-export async function createDownloadUrl(key: string, expiresIn = 3600) {
+export async function createDownloadUrl(
+  key: string,
+  expiresIn = 3600,
+  downloadName?: string,
+) {
   const command = new GetObjectCommand({
     Bucket: getR2BucketName(),
     Key: key,
+    ResponseContentDisposition: downloadName
+      ? `attachment; filename="${downloadName.replace(/[^a-zA-Z0-9._-]/g, "_")}"`
+      : undefined,
   });
   return getSignedUrl(getR2Client(), command, { expiresIn });
 }
-
