@@ -8,10 +8,10 @@
  * утгагүй тул client талд динамикаар ачаална.
  */
 
-const MODEL_VIEWER_VERSION = "4.3.1";
 const QRCODE_VERSION = "1.5.4";
 
-const MODEL_VIEWER_SRC = `https://cdn.jsdelivr.net/npm/@google/model-viewer@${MODEL_VIEWER_VERSION}/dist/model-viewer.min.js`;
+/** Same-origin copy: third-party CDN latency no longer blocks the 3D viewer. */
+export const MODEL_VIEWER_SRC = "/vendor/model-viewer.min.js";
 
 const cache = new Map<string, Promise<void>>();
 

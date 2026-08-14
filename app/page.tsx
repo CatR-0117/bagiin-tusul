@@ -100,6 +100,7 @@ export default function HomePage() {
                   src={model.src}
                   ar={false}
                   autoRotate
+                  loading="lazy"
                   className="showcase-card-viewer"
                 />
               </div>

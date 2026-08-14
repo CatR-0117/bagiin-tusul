@@ -21,7 +21,7 @@ export const showcaseModels: ShowcaseModel[] = [
     description:
       "Орчин үеийн хэлбэр, зөөлөн материалын деталийг бүх өнцгөөс нь эргүүлж үзээрэй.",
     src: "/models/sofa.glb",
-    fileSize: "195 KB",
+    fileSize: "208 KB",
     surface: "#d9d3c8",
     accent: "#e45d36",
   },
@@ -34,7 +34,7 @@ export const showcaseModels: ShowcaseModel[] = [
     description:
       "Модны ширхэг, гар хийцийн гадаргууг ойртуулж харах бодит мэт 3D загвар.",
     src: "/models/wooden-bowl-spoon.glb",
-    fileSize: "152 KB",
+    fileSize: "182 KB",
     surface: "#d9b881",
     accent: "#30251b",
   },
@@ -47,7 +47,7 @@ export const showcaseModels: ShowcaseModel[] = [
     description:
       "Цүнхний хэлбэр, оёдол болон материалын деталийг хулгана эсвэл хуруугаараа шалгана.",
     src: "/models/travel-bag.glb",
-    fileSize: "361 KB",
+    fileSize: "789 KB",
     surface: "#bfc4b9",
     accent: "#204a3a",
   },
@@ -60,7 +60,7 @@ export const showcaseModels: ShowcaseModel[] = [
     description:
       "Өнгө, тоо, металл хүрээний бүтцийг 360° эргэлтээр дэлгэрэнгүй үзэх загвар.",
     src: "/models/dartboard.glb",
-    fileSize: "531 KB",
+    fileSize: "302 KB",
     surface: "#c9bfb1",
     accent: "#c5322f",
   },
@@ -73,7 +73,7 @@ export const showcaseModels: ShowcaseModel[] = [
     description:
       "Энгийн бүтээгдэхүүний танилцуулгыг интерактив 3D хэлбэрээр хэрхэн үзүүлэх жишээ.",
     src: "/models/tissue-box.glb",
-    fileSize: "416 KB",
+    fileSize: "291 KB",
     surface: "#d5c9c5",
     accent: "#6e2c4c",
   },

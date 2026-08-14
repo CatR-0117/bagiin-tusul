@@ -2,6 +2,7 @@
 
 import { Box, Loader2 } from "lucide-react";
 import { type FC, useEffect, useRef, useState } from "react";
+import { loadModelViewer } from "@/lib/cdn";
 
 export type ModelViewerElement = HTMLElement & {
   activateAR: () => Promise<void> | void;
@@ -16,31 +17,57 @@ export function ModelViewer({
   poster,
   ar = true,
   autoRotate = true,
+  loading = "eager",
   className = "",
   onReady,
+  onProgress,
 }: {
   src: string;
   iosSrc?: string | null;
   poster?: string | null;
   ar?: boolean;
   autoRotate?: boolean;
+  loading?: "eager" | "lazy" | "auto";
   className?: string;
   onReady?: (element: ModelViewerElement) => void;
+  onProgress?: (progress: number) => void;
 }) {
   const ref = useRef<ModelViewerElement | null>(null);
   const [defined, setDefined] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     let active = true;
-    import("@google/model-viewer")
+    loadModelViewer()
       .then(() => { if (active) setDefined(true); })
       .catch(() => { if (active) setFailed(true); });
     return () => { active = false; };
   }, []);
 
-  if (failed) return <div className={`model-viewer-error ${className}`}><Box size={32} /><span>The 3D viewer could not load.</span></div>;
+  useEffect(() => {
+    const node = ref.current;
+    if (!defined || !node) return;
+
+    const handleProgress = (event: Event) => {
+      const next = Math.min(
+        1,
+        Math.max(
+          0,
+          (event as CustomEvent<{ totalProgress?: number }>).detail
+            ?.totalProgress ?? 0,
+        ),
+      );
+      setProgress(next);
+      onProgress?.(next);
+    };
+
+    node.addEventListener("progress", handleProgress);
+    return () => node.removeEventListener("progress", handleProgress);
+  }, [defined, onProgress]);
+
+  if (failed) return <div className={`model-viewer-error ${className}`}><Box size={32} /><span>3D загвар ачаалагдсангүй.</span></div>;
 
   const props: Record<string, unknown> = {
     ref: (node: HTMLElement | null) => { ref.current = node as ModelViewerElement | null; },
@@ -51,11 +78,13 @@ export function ModelViewer({
     "shadow-intensity": "0.9",
     "environment-image": "neutral",
     exposure: "1.08",
-    loading: "eager",
+    loading,
     reveal: "auto",
     className: `model-viewer-element ${className}`,
     onLoad: () => {
       setLoaded(true);
+      setProgress(1);
+      onProgress?.(1);
       if (ref.current) onReady?.(ref.current);
     },
     onError: () => setFailed(true),
@@ -74,7 +103,7 @@ export function ModelViewer({
   return (
     <div className={`model-viewer-container ${loaded ? "is-loaded" : ""}`}>
       {defined && <ModelViewerTag {...props} />}
-      {!loaded && <div className="model-viewer-loader"><Loader2 className="spin" size={24} /><span>{defined ? "Loading 3D model" : "Starting 3D viewer"}</span></div>}
+      {!loaded && <div className="model-viewer-loader"><Loader2 className="spin" size={24} /><span>{defined ? `3D загвар татаж байна · ${Math.round(progress * 100)}%` : "3D үзэгчийг нээж байна"}</span></div>}
     </div>
   );
 }

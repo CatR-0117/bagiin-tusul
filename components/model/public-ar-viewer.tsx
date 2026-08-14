@@ -1,11 +1,13 @@
 "use client";
 
 import { ScanLine } from "lucide-react";
+import ReactDOM from "react-dom";
 import { useState } from "react";
 import {
   ModelViewer,
   type ModelViewerElement,
 } from "@/components/model/model-viewer";
+import { MODEL_VIEWER_SRC } from "@/lib/cdn";
 
 export function PublicArViewer({
   src,
@@ -16,6 +18,16 @@ export function PublicArViewer({
 }) {
   const [viewer, setViewer] = useState<ModelViewerElement | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+
+  ReactDOM.preinitModule(MODEL_VIEWER_SRC, {
+    crossOrigin: "anonymous",
+  });
+  ReactDOM.preload(src, {
+    as: "fetch",
+    crossOrigin: "anonymous",
+    fetchPriority: "high",
+  });
 
   async function openAr() {
     if (!viewer) return;
@@ -45,6 +57,7 @@ export function PublicArViewer({
         autoRotate
         className="public-detail-viewer"
         onReady={setViewer}
+        onProgress={setProgress}
       />
       <div className="public-ar-control" id="ar-action">
         {message && <p role="status">{message}</p>}
@@ -56,7 +69,9 @@ export function PublicArViewer({
           aria-label={`${name} загварыг бодит орчинд AR-аар харах`}
         >
           <ScanLine size={19} />
-          {viewer ? "AR-аар харах" : "AR бэлдэж байна…"}
+          {viewer
+            ? "AR-аар харах"
+            : `Загвар татаж байна · ${Math.round(progress * 100)}%`}
         </button>
       </div>
     </>
