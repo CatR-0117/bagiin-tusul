@@ -35,12 +35,19 @@ export function PublicArViewer({
     const image = document.createElement("img");
     anchor.rel = "ar";
     anchor.href = new URL(iosSrc, window.location.href).toString();
-    anchor.style.display = "none";
+    anchor.style.position = "fixed";
+    anchor.style.width = "1px";
+    anchor.style.height = "1px";
+    anchor.style.left = "-10px";
+    anchor.style.opacity = "0";
+    anchor.style.pointerEvents = "none";
     image.alt = "";
+    image.src =
+      "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
     anchor.appendChild(image);
     document.body.appendChild(anchor);
     anchor.click();
-    window.setTimeout(() => anchor.remove(), 1000);
+    window.setTimeout(() => anchor.remove(), 30000);
   }
 
   function openSceneViewer() {
@@ -71,13 +78,22 @@ export function PublicArViewer({
 
     setMessage(null);
 
-    if (isIos) {
-      openQuickLook();
+    if (/Android/i.test(userAgent)) {
+      openSceneViewer();
       return;
     }
 
-    if (/Android/i.test(userAgent)) {
-      openSceneViewer();
+    if (isIos) {
+      if (viewer?.canActivateAR) {
+        try {
+          await viewer.activateAR();
+          return;
+        } catch {
+          // The direct Quick Look link below is the iOS fallback.
+        }
+      }
+
+      openQuickLook();
       return;
     }
 
@@ -113,7 +129,7 @@ export function PublicArViewer({
         ar
         autoRotate
         className="public-detail-viewer"
-        onReady={setViewer}
+        onElement={setViewer}
       />
       <div className="public-ar-control" id="ar-action">
         {message && <p role="status">{message}</p>}

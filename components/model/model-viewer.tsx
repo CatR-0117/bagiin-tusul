@@ -19,6 +19,7 @@ export function ModelViewer({
   autoRotate = true,
   loading = "eager",
   className = "",
+  onElement,
   onReady,
   onProgress,
 }: {
@@ -29,6 +30,7 @@ export function ModelViewer({
   autoRotate?: boolean;
   loading?: "eager" | "lazy" | "auto";
   className?: string;
+  onElement?: (element: ModelViewerElement) => void;
   onReady?: (element: ModelViewerElement) => void;
   onProgress?: (progress: number) => void;
 }) {
@@ -50,6 +52,8 @@ export function ModelViewer({
     const node = ref.current;
     if (!defined || !node) return;
 
+    onElement?.(node);
+
     const handleProgress = (event: Event) => {
       const next = Math.min(
         1,
@@ -65,7 +69,7 @@ export function ModelViewer({
 
     node.addEventListener("progress", handleProgress);
     return () => node.removeEventListener("progress", handleProgress);
-  }, [defined, onProgress]);
+  }, [defined, onElement, onProgress]);
 
   if (failed) return <div className={`model-viewer-error ${className}`}><Box size={32} /><span>3D загвар ачаалагдсангүй.</span></div>;
 
