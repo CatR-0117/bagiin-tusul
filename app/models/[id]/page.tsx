@@ -32,16 +32,20 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ id
         <header className="model-detail-header">
           <div><div className="title-status"><ProjectStatusBadge status={project.status} /><span>{project.id.slice(0, 8).toUpperCase()}</span></div><h1>{project.title || "Untitled model"}</h1><p><CalendarDays size={15} /> Created {new Date(project.created_at).toLocaleDateString("en", { month: "long", day: "numeric", year: "numeric" })}</p></div>
           <div className="detail-actions">
-            {urls.glbUrl && <a className="button button-secondary" href={`/api/projects/${project.id}/download?format=glb`}><Download size={16} /> Download GLB</a>}
-            {project.status === "ready" && <Link className="button button-primary" href={`/ar/${project.id}`}><ScanLine size={16} /> View in AR</Link>}
+            {urls.originalGlbUrl && <a className="button button-secondary" href={`/api/projects/${project.id}/download?format=glb`}><Download size={16} /> Download original GLB</a>}
+            {project.status === "ready" ? (
+              <Link className="button button-primary" href={`/ar/${project.id}`}><ScanLine size={16} /> View in AR</Link>
+            ) : (
+              <button className="button button-primary" type="button" disabled><ScanLine size={16} /> Preparing AR…</button>
+            )}
           </div>
         </header>
 
-        {project.status === "ready" && urls.glbUrl ? (
+        {project.status === "ready" && urls.webGlbUrl ? (
           <div className="detail-grid">
             <section className="model-stage">
               <div className="stage-top"><span><i /> INTERACTIVE PREVIEW</span><small>Drag to orbit · Scroll to zoom</small></div>
-              <ModelViewer src={urls.glbUrl} iosSrc={urls.usdzUrl} poster={urls.thumbnailUrl} />
+              <ModelViewer src={urls.webGlbUrl} iosSrc={urls.iosUsdzUrl} poster={urls.thumbnailUrl} />
               <div className="stage-format"><Box size={15} /> GLB / PBR <span>AR READY</span></div>
             </section>
             <aside className="detail-aside">
@@ -60,13 +64,13 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ id
               <div className="scan-line" />
               <span>Analyzing source geometry</span>
             </section>
-            <GenerationStatus projectId={project.id} status={project.status} errorMessage={project.error_message} />
+            <GenerationStatus projectId={project.id} status={project.status} errorMessage={project.processing_error ?? project.error_message} canRetry={Boolean(project.original_glb_key)} />
           </div>
         )}
 
         <section className="project-details-card">
           <div><ImageIcon size={17} /><span><small>Source</small>{project.source_image_key?.split("/").pop() ?? "Unavailable"}</span></div>
-          <div><Box size={17} /><span><small>3D file</small>{project.glb_key?.split("/").pop() ?? "Generating…"}</span></div>
+          <div><Box size={17} /><span><small>3D file</small>{project.web_glb_key?.split("/").pop() ?? "Preparing…"}</span></div>
           <DeleteProjectButton projectId={project.id} />
         </section>
       </div>

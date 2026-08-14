@@ -2,57 +2,124 @@
 
 import Link from "next/link";
 import { ArrowLeft, Box, Loader2, ScanLine, Smartphone, TriangleAlert } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ModelViewer, type ModelViewerElement } from "@/components/model/model-viewer";
 
+type ArAssets = {
+  webGlb: string;
+  androidGlb: string;
+  iosUsdz: string;
+};
+
+function isIosDevice() {
+  return /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function openQuickLook(url: string) {
+  const anchor = document.createElement("a");
+  const image = document.createElement("img");
+  anchor.rel = "ar";
+  anchor.href = url;
+  anchor.style.position = "fixed";
+  anchor.style.width = "1px";
+  anchor.style.height = "1px";
+  anchor.style.left = "-10px";
+  image.alt = "";
+  image.src = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
+  anchor.appendChild(image);
+  document.body.appendChild(anchor);
+  anchor.click();
+  window.setTimeout(() => anchor.remove(), 30_000);
+}
+
+function openSceneViewer(url: string) {
+  const fallback = new URL(window.location.href);
+  fallback.hash = "model-viewer-no-ar-fallback";
+  window.location.href =
+    `intent://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(url)}` +
+    "&mode=ar_preferred&resizable=false&disable_occlusion=true" +
+    "#Intent;scheme=https;package=com.google.android.googlequicksearchbox;" +
+    "action=android.intent.action.VIEW;" +
+    `S.browser_fallback_url=${encodeURIComponent(fallback.toString())};end;`;
+}
+
 export function ArViewer({
+  projectId,
   title,
-  glbUrl,
-  usdzUrl,
+  initialAssets,
   posterUrl,
 }: {
+  projectId: string;
   title: string;
-  glbUrl: string;
-  usdzUrl: string | null;
+  initialAssets: ArAssets;
   posterUrl: string | null;
 }) {
+  const [assets, setAssets] = useState(initialAssets);
   const [element, setElement] = useState<ModelViewerElement | null>(null);
   const [launching, setLaunching] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/models/${projectId}/assets`, { cache: "no-store" })
+      .then(async (response) => {
+        const payload = (await response.json()) as ArAssets & { error?: string };
+        if (!response.ok) throw new Error(payload.error ?? "AR assets could not be refreshed.");
+        if (active) setAssets(payload);
+      })
+      .catch((error) => {
+        if (active) setMessage(error instanceof Error ? error.message : "AR assets could not be refreshed.");
+      });
+    return () => { active = false; };
+  }, [projectId]);
+
   async function launchAr() {
-    if (!element) return;
-    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    if (isIos && !usdzUrl) {
-      setMessage("An iOS USDZ file is not available yet. You can still explore the 3D model here.");
-      return;
-    }
-    if (!element.canActivateAR) {
-      setMessage("AR is not available in this browser. Try Safari on iPhone or Chrome on an ARCore Android phone.");
-      return;
-    }
     setLaunching(true);
     setMessage(null);
-    try { await element.activateAR(); }
-    catch { setMessage("AR could not start on this device."); }
-    finally { setLaunching(false); }
+    try {
+      if (isIosDevice()) {
+        openQuickLook(assets.iosUsdz);
+        return;
+      }
+      if (/Android/i.test(navigator.userAgent)) {
+        if (element?.canActivateAR) {
+          await element.activateAR();
+        } else {
+          openSceneViewer(assets.androidGlb);
+        }
+        return;
+      }
+      if (element?.canActivateAR) {
+        await element.activateAR();
+        return;
+      }
+      setMessage("Open this page in Safari on iPhone or Chrome on an ARCore Android phone.");
+    } catch {
+      if (/Android/i.test(navigator.userAgent)) {
+        openSceneViewer(assets.androidGlb);
+      } else {
+        setMessage("AR could not start on this device.");
+      }
+    } finally {
+      setLaunching(false);
+    }
   }
 
   return (
     <main className="ar-page">
       <header className="ar-header"><Link href="/"><ArrowLeft size={17} /> SnapAR</Link><span><i /> AR READY</span></header>
       <section className="ar-viewer-stage">
-        <ModelViewer src={glbUrl} iosSrc={usdzUrl} poster={posterUrl} onReady={setElement} className="ar-model-viewer" />
+        <ModelViewer src={assets.androidGlb} iosSrc={assets.iosUsdz} poster={posterUrl} onReady={setElement} className="ar-model-viewer" />
         <div className="ar-title"><span className="eyebrow">Spatial preview</span><h1>{title}</h1><p><Box size={14} /> Drag to rotate · Pinch to zoom</p></div>
       </section>
       <section className="ar-action-sheet">
         <div><span className="ar-device-icon"><Smartphone size={22} /></span><span><strong>View at true scale</strong><small>Place this model on a detected surface.</small></span></div>
-        <button className="button button-primary button-wide ar-launch" type="button" onClick={launchAr} disabled={!element || launching}>
+        <button className="button button-primary button-wide ar-launch" type="button" onClick={launchAr} disabled={launching}>
           {launching ? <Loader2 className="spin" size={19} /> : <ScanLine size={19} />}
-          {launching ? "Starting AR…" : "View in your space"}
+          {launching ? "Starting AR…" : "View in AR"}
         </button>
         {message && <p className="ar-fallback"><TriangleAlert size={16} /> {message}</p>}
-        {!usdzUrl && <p className="ar-format-note">GLB web and Android AR are ready. iOS Quick Look needs a USDZ output from the connected AI provider.</p>}
       </section>
     </main>
   );

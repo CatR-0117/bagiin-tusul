@@ -6,8 +6,8 @@ import { localAssetUrl } from "@/lib/r2/download";
 import { createDownloadUrl } from "@/lib/r2/presign";
 
 const formats = {
-  glb: { field: "glb_key", contentType: "model/gltf-binary" },
-  usdz: { field: "usdz_key", contentType: "model/vnd.usdz+zip" },
+  glb: { field: "original_glb_key", fallback: "glb_key", contentType: "model/gltf-binary" },
+  usdz: { field: "ios_usdz_key", fallback: "usdz_key", contentType: "model/vnd.usdz+zip" },
 } as const;
 
 export async function GET(
@@ -23,7 +23,7 @@ export async function GET(
   }
   const project = await getProjectForUser(user.id, id);
   if (!project) return Response.json({ error: "Project not found." }, { status: 404 });
-  const key = project[formats[format].field];
+  const key = project[formats[format].field] ?? project[formats[format].fallback];
   if (!key) return Response.json({ error: `${format.toUpperCase()} is unavailable.` }, { status: 404 });
   const safeTitle = (project.title || "snapar-model").replace(/[^a-zA-Z0-9._-]/g, "-");
 
@@ -45,4 +45,3 @@ export async function GET(
   const signedUrl = await createDownloadUrl(key, 300, `${safeTitle}.${format}`);
   return NextResponse.redirect(signedUrl);
 }
-

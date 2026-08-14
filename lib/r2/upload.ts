@@ -14,7 +14,7 @@ export async function uploadBuffer(
       ContentType: contentType,
     }),
   );
-  return key;
+  return { key, size: body.byteLength };
 }
 
 export async function uploadRemoteFile(
@@ -35,4 +35,3 @@ export async function uploadRemoteFile(
   if (body.byteLength === 0) throw new Error("The generated asset was empty.");
   return uploadBuffer(key, body, contentType);
 }
-

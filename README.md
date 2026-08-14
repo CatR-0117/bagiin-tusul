@@ -2,7 +2,7 @@
 
 SnapAR is a functional MVP for turning a product image into an interactive 3D model and a shareable mobile AR experience. Users can create an account, recover or change their password, manage their profile, upload directly to Cloudflare R2, start an image-to-3D job, monitor generation, inspect and download the resulting GLB, and share an `/ar/[projectId]` QR route.
 
-The app also has a zero-configuration development mode. When Supabase, R2, or an AI provider is unavailable, the account screen opens a demo workspace, uploads use an in-memory local adapter, and the generation pipeline returns the bundled `public/demo/model.glb` sample after simulated workflow stages.
+The app also has a zero-configuration development mode. When Supabase, R2, or an AI provider is unavailable, the account screen opens a demo workspace, uploads use an in-memory local adapter, and the generation pipeline returns a bundled matching GLB/USDZ pair after simulated workflow stages.
 
 ## Architecture
 
@@ -16,7 +16,12 @@ Next.js App Router
   ├─ protected pages + API ownership checks
   ├─ provider-agnostic image-to-3D orchestration
   ├─ signed R2 GET URLs generated on demand
-  └─ Supabase PostgreSQL ────────────────────────► project keys + metadata
+  └─ Supabase PostgreSQL ────────────────────────► project keys + durable queue state
+
+Node model processor
+  ├─ GLTF Transform + meshoptimizer + Sharp
+  ├─ headless GLB → USDZ conversion
+  └─ original.glb ──► web.glb / android-ar.glb / ios-ar.usdz
 
 Desktop model page ── QR /ar/[projectId] ──► mobile model-viewer ──► AR
 ```
@@ -60,7 +65,7 @@ npm run build:next
 1. Create a Supabase project.
 2. Copy the Project URL and publishable key from the project Connect dialog into `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 3. Copy the server-only service-role key into `SUPABASE_SERVICE_ROLE_KEY`. Never prefix it with `NEXT_PUBLIC_`.
-4. In the SQL Editor, run [`supabase/migrations/20260812000000_create_projects.sql`](supabase/migrations/20260812000000_create_projects.sql).
+4. In the SQL Editor, run [`supabase/migrations/20260812000000_create_projects.sql`](supabase/migrations/20260812000000_create_projects.sql), followed by [`supabase/migrations/20260814000000_add_model_processing_pipeline.sql`](supabase/migrations/20260814000000_add_model_processing_pipeline.sql).
 5. Set the Auth Site URL to the app origin. Add both the local and production callback URLs to the Auth redirect allow list:
 
 ```text
@@ -110,9 +115,11 @@ SnapAR generates keys on the server:
 
 ```text
 uploads/{userId}/{projectId}/source.{jpg|png|webp}
-models/{userId}/{projectId}/model.glb
-models/{userId}/{projectId}/model.usdz
-thumbnails/{userId}/{projectId}/preview.webp
+models/{projectId}/original.glb
+models/{projectId}/web.glb
+models/{projectId}/android-ar.glb
+models/{projectId}/ios-ar.usdz
+models/{projectId}/thumbnail.webp
 ```
 
 ### R2 CORS
@@ -144,7 +151,7 @@ Set:
 USE_MOCK_AI=true
 ```
 
-The mock provider is implemented in `lib/ai/mock-provider.ts`. It simulates preparing, geometry, processing, and finalization stages, then returns the bundled demo GLB. Set `USE_MOCK_AI=false` only after the real provider variables are configured.
+The mock provider is implemented in `lib/ai/mock-provider.ts`. It simulates preparing, geometry, processing, and finalization stages, then uses the bundled matching sofa GLB and USDZ pair. Set `USE_MOCK_AI=false` only after the real provider variables are configured.
 
 Regenerate the bundled sample GLB if needed:
 
@@ -178,7 +185,7 @@ The included HTTP adapter expects:
 
 If a provider uses different endpoints or response fields, update only `lib/ai/http-provider.ts` or add another `ImageTo3DProvider`. Components and project routes should remain provider-independent.
 
-When a job completes, the status endpoint downloads each provider result server-side and writes it to deterministic R2 keys. Polling is idempotent: an already-ready project immediately returns its saved state, while concurrent finalization can only overwrite the same object keys.
+When a job completes, the status endpoint stores only the provider GLB as the immutable original and queues derived-asset processing. See [MODEL-PROCESSING.md](MODEL-PROCESSING.md) for the worker deployment, retry, analysis, and optimization policy.
 
 ## Deployment to Vercel
 
@@ -187,7 +194,8 @@ When a job completes, the status endpoint downloads each provider result server-
 3. Add every variable from `.env.example` under Project Settings. Keep `SUPABASE_SERVICE_ROLE_KEY`, `R2_SECRET_ACCESS_KEY`, and `AI_API_KEY` server-only.
 4. Add the production origin to Supabase redirects, Google OAuth origins, and R2 CORS.
 5. Set `NEXT_PUBLIC_APP_URL` to the production origin so generated QR routes use the correct host.
-6. Deploy, then verify signup, direct upload, generation polling, GLB access, and AR from a real phone.
+6. Deploy the separate model-processor container described in [MODEL-PROCESSING.md](MODEL-PROCESSING.md).
+7. Deploy, then verify signup, direct upload, generation/optimization polling, signed asset access, and AR from both an iPhone and an ARCore Android phone.
 
 ## Security notes
 

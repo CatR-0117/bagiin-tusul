@@ -23,7 +23,17 @@ export default async function ArPage({ params }: { params: Promise<{ id: string 
   const project = await getProjectForAr(user?.id ?? null, id);
   if (!project || project.status !== "ready") notFound();
   const urls = await getProjectAssetUrls(project);
-  if (!urls.glbUrl) notFound();
-  return <ArViewer title={project.title || "Untitled model"} glbUrl={urls.glbUrl} usdzUrl={urls.usdzUrl} posterUrl={urls.thumbnailUrl} />;
+  if (!urls.webGlbUrl || !urls.androidGlbUrl || !urls.iosUsdzUrl) notFound();
+  return (
+    <ArViewer
+      projectId={project.id}
+      title={project.title || "Untitled model"}
+      initialAssets={{
+        webGlb: urls.webGlbUrl,
+        androidGlb: urls.androidGlbUrl,
+        iosUsdz: urls.iosUsdzUrl,
+      }}
+      posterUrl={urls.thumbnailUrl}
+    />
+  );
 }
-

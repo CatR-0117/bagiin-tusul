@@ -16,7 +16,9 @@ export default async function DashboardPage() {
     thumbnailUrl: await getObjectUrl(project.thumbnail_key ?? project.source_image_key),
   })));
   const readyCount = projects.filter((project) => project.status === "ready").length;
-  const activeCount = projects.filter((project) => project.status === "generating").length;
+  const activeCount = projects.filter((project) =>
+    ["generating", "optimizing", "converting"].includes(project.status),
+  ).length;
 
   return (
     <AppShell user={user}>
@@ -39,4 +41,3 @@ export default async function DashboardPage() {
     </AppShell>
   );
 }
-

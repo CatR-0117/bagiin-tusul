@@ -19,6 +19,13 @@ export async function GET(
   if (project.status === "ready" && project.glb_key) {
     return Response.json({ status: "completed", stage: "complete", project });
   }
+  if (project.status === "optimizing" || project.status === "converting") {
+    return Response.json({
+      status: "processing",
+      stage: project.status,
+      project,
+    });
+  }
   if (project.status === "failed") {
     return Response.json({
       status: "failed",
@@ -42,27 +49,46 @@ export async function GET(
     if (status.status !== "completed") return Response.json(status);
     if (!status.result?.glbUrl) throw new Error("The AI provider did not return a GLB file.");
 
-    let glbKey: string;
-    let usdzKey: string | null = null;
+    let originalGlbKey: string;
+    let originalGlbSize: number;
     let thumbnailKey: string | null = project.source_image_key;
 
     if (isMockAIEnabled()) {
-      glbKey = "demo/model.glb";
+      const ready = await updateProject(user.id, id, {
+        original_glb_key: "demo/sofa.glb",
+        original_glb_size: 207332,
+        web_glb_key: "demo/sofa.glb",
+        web_glb_size: 207332,
+        android_glb_key: "demo/sofa.glb",
+        android_glb_size: 207332,
+        ios_usdz_key: "demo/sofa.usdz",
+        ios_usdz_size: 2300540,
+        glb_key: "demo/sofa.glb",
+        usdz_key: "demo/sofa.usdz",
+        web_optimization_status: "excellent",
+        android_optimization_status: "excellent",
+        ios_optimization_status: "excellent",
+        optimization_warnings: [],
+        thumbnail_key: thumbnailKey,
+        status: "ready",
+        processing_error: null,
+        processing_started_at: new Date().toISOString(),
+        processing_completed_at: new Date().toISOString(),
+        error_message: null,
+      });
+      return Response.json({ ...status, project: ready });
     } else {
       const origin = new URL(request.url).origin;
-      glbKey = `models/${user.id}/${id}/model.glb`;
-      await uploadRemoteFile(glbKey, status.result.glbUrl, "model/gltf-binary", origin);
-      if (status.result.usdzUrl) {
-        usdzKey = `models/${user.id}/${id}/model.usdz`;
-        await uploadRemoteFile(
-          usdzKey,
-          status.result.usdzUrl,
-          "model/vnd.usdz+zip",
-          origin,
-        );
-      }
+      originalGlbKey = `models/${id}/original.glb`;
+      const original = await uploadRemoteFile(
+        originalGlbKey,
+        status.result.glbUrl,
+        "model/gltf-binary",
+        origin,
+      );
+      originalGlbSize = original.size;
       if (status.result.thumbnailUrl) {
-        thumbnailKey = `thumbnails/${user.id}/${id}/preview.webp`;
+        thumbnailKey = `models/${id}/thumbnail.webp`;
         await uploadRemoteFile(
           thumbnailKey,
           status.result.thumbnailUrl,
@@ -72,19 +98,25 @@ export async function GET(
       }
     }
 
-    const ready = await updateProject(user.id, id, {
-      glb_key: glbKey,
-      usdz_key: usdzKey,
+    const queued = await updateProject(user.id, id, {
+      original_glb_key: originalGlbKey,
+      original_glb_size: originalGlbSize,
       thumbnail_key: thumbnailKey,
-      status: "ready",
+      status: "optimizing",
+      processing_error: null,
+      processing_worker_id: null,
+      processing_claimed_at: null,
       error_message: null,
     });
-    return Response.json({ ...status, project: ready });
+    return Response.json({ status: "processing", stage: "optimizing", project: queued });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not finalize generated assets.";
-    await updateProject(user.id, id, { status: "failed", error_message: message });
+    await updateProject(user.id, id, {
+      status: "failed",
+      processing_error: message,
+      error_message: message,
+    });
     console.error("[generation-status]", error);
     return Response.json({ status: "failed", error: message }, { status: 502 });
   }
 }
-

@@ -4,6 +4,8 @@ const labels: Record<ProjectStatus, string> = {
   uploading: "Uploading",
   uploaded: "Uploaded",
   generating: "Generating",
+  optimizing: "Optimizing",
+  converting: "Preparing AR",
   ready: "Ready",
   failed: "Failed",
 };
@@ -11,4 +13,3 @@ const labels: Record<ProjectStatus, string> = {
 export function ProjectStatusBadge({ status }: { status: ProjectStatus }) {
   return <span className={`status-badge status-${status}`}><i />{labels[status]}</span>;
 }
-

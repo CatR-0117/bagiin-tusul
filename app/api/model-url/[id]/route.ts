@@ -4,8 +4,12 @@ import { getObjectUrl } from "@/lib/r2/download";
 
 const FILE_FIELDS = {
   source: "source_image_key",
-  glb: "glb_key",
-  usdz: "usdz_key",
+  original: "original_glb_key",
+  web: "web_glb_key",
+  android: "android_glb_key",
+  ios: "ios_usdz_key",
+  glb: "web_glb_key",
+  usdz: "ios_usdz_key",
   thumbnail: "thumbnail_key",
 } as const;
 
@@ -23,9 +27,10 @@ export async function GET(
   if (!file || !(file in FILE_FIELDS)) {
     return Response.json({ error: "Unknown model asset." }, { status: 400 });
   }
-  const key = project[FILE_FIELDS[file]];
+  const key =
+    project[FILE_FIELDS[file]] ??
+    (file === "glb" ? project.glb_key : file === "usdz" ? project.usdz_key : null);
   if (!key) return Response.json({ error: "Asset unavailable." }, { status: 404 });
   const url = await getObjectUrl(key);
   return Response.json({ url, expiresIn: key.startsWith("demo/") ? null : 3600 });
 }
-

@@ -25,9 +25,8 @@ export function ModelCard({
       </div>
       <div className="model-card-meta">
         <div><h3>{project.title || "Untitled model"}</h3><p>{new Date(project.created_at).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" })}</p></div>
-        <span>{project.glb_key ? "GLB" : "—"}</span>
+        <span>{project.web_glb_key ?? project.glb_key ? "GLB + USDZ" : "—"}</span>
       </div>
     </Link>
   );
 }
-

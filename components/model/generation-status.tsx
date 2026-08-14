@@ -1,19 +1,23 @@
 "use client";
 
-import { Check, Circle, Loader2, TriangleAlert } from "lucide-react";
+import { Check, Circle, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ProjectStatus } from "@/types/project";
 
 const STAGES = [
-  { key: "uploaded", label: "Upload complete" },
-  { key: "preparing", label: "Preparing image" },
-  { key: "geometry", label: "Generating geometry" },
-  { key: "processing", label: "Processing model" },
-  { key: "finalizing", label: "Finalizing assets" },
+  { key: "generating", label: "Generating 3D model…" },
+  { key: "optimizing", label: "Optimizing model…" },
+  { key: "converting", label: "Preparing iPhone AR version…" },
+  { key: "ready", label: "Ready" },
 ] as const;
 
 type Stage = (typeof STAGES)[number]["key"];
+const ACTIVE_STATUSES: ProjectStatus[] = ["generating", "optimizing", "converting"];
+
+function stageForStatus(status: ProjectStatus): Stage {
+  return ACTIVE_STATUSES.includes(status) ? (status as Stage) : "generating";
+}
 
 function stageIndex(stage: Stage) {
   return STAGES.findIndex((item) => item.key === stage);
@@ -23,29 +27,38 @@ export function GenerationStatus({
   projectId,
   status,
   errorMessage,
+  canRetry = false,
   compact = false,
 }: {
   projectId: string;
   status: ProjectStatus;
   errorMessage?: string | null;
+  canRetry?: boolean;
   compact?: boolean;
 }) {
   const router = useRouter();
-  const [stage, setStage] = useState<Stage>(status === "uploaded" ? "uploaded" : "preparing");
+  const [stage, setStage] = useState<Stage>(stageForStatus(status));
   const [error, setError] = useState<string | null>(errorMessage ?? null);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
-    if (status !== "generating") return;
+    if (!ACTIVE_STATUSES.includes(status)) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
 
     async function poll() {
       try {
-        const response = await fetch(`/api/generation-status/${projectId}`, { cache: "no-store" });
-        const payload = (await response.json()) as { status?: string; stage?: Stage | "complete"; error?: string };
+        const response = await fetch(`/api/generation-status/${projectId}`, {
+          cache: "no-store",
+        });
+        const payload = (await response.json()) as {
+          status?: string;
+          stage?: string;
+          error?: string;
+        };
         if (cancelled) return;
         if (!response.ok || payload.status === "failed") {
-          setError(payload.error ?? "Model generation failed.");
+          setError(payload.error ?? "Model processing failed.");
           router.refresh();
           return;
         }
@@ -53,10 +66,14 @@ export function GenerationStatus({
           router.refresh();
           return;
         }
-        if (payload.stage && payload.stage !== "complete") setStage(payload.stage);
-        timer = setTimeout(poll, 1_500);
+        if (payload.stage === "optimizing" || payload.stage === "converting") {
+          setStage(payload.stage);
+        } else {
+          setStage("generating");
+        }
+        timer = setTimeout(poll, 2_000);
       } catch {
-        if (!cancelled) timer = setTimeout(poll, 2_500);
+        if (!cancelled) timer = setTimeout(poll, 3_500);
       }
     }
 
@@ -67,11 +84,41 @@ export function GenerationStatus({
     };
   }, [projectId, router, status]);
 
+  async function retry() {
+    setRetrying(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/models/${projectId}/retry`, {
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Retry could not be started.");
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Retry could not be started.");
+      setRetrying(false);
+    }
+  }
+
   if (status === "failed" || error) {
     return (
       <div className="generation-failed" role="alert">
         <TriangleAlert size={20} />
-        <div><strong>Generation stopped</strong><span>{error ?? "The model could not be generated."}</span></div>
+        <div>
+          <strong>Processing stopped</strong>
+          <span>{error ?? "The model could not be prepared."}</span>
+          {canRetry && (
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={retry}
+              disabled={retrying}
+            >
+              {retrying ? <Loader2 className="spin" size={14} /> : <RefreshCw size={14} />}
+              {retrying ? "Restarting…" : "Retry processing"}
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -81,14 +128,14 @@ export function GenerationStatus({
   }
 
   if (compact) {
-    return <div className="generating-compact"><Loader2 className="spin" size={16} /> {STAGES[stageIndex(stage)]?.label ?? "Preparing image"}</div>;
+    return <div className="generating-compact"><Loader2 className="spin" size={16} /> {STAGES[stageIndex(stage)]?.label}</div>;
   }
 
   const activeIndex = stageIndex(stage);
   return (
     <div className="generation-panel">
       <div className="generation-panel-head">
-        <div><span className="eyebrow">AI generation in progress</span><h3>Building your spatial asset</h3></div>
+        <div><span className="eyebrow">Model processing</span><h3>Building your spatial asset</h3></div>
         <Loader2 className="spin" size={24} />
       </div>
       <ol className="generation-stages">
@@ -103,8 +150,7 @@ export function GenerationStatus({
           );
         })}
       </ol>
-      <p>This usually takes under two minutes. You can leave this page and come back.</p>
+      <p>The AR button becomes available only after both Android GLB and iPhone USDZ assets are ready.</p>
     </div>
   );
 }
-

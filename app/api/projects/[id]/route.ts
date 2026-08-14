@@ -14,11 +14,17 @@ export async function DELETE(
 
   const keys = [
     project.source_image_key,
+    project.original_glb_key,
+    project.web_glb_key,
+    project.android_glb_key,
+    project.ios_usdz_key,
     project.glb_key,
     project.usdz_key,
     project.thumbnail_key === project.source_image_key ? null : project.thumbnail_key,
   ];
-  const cleanup = await Promise.allSettled(keys.map((key) => deleteObject(key)));
+  const cleanup = await Promise.allSettled(
+    [...new Set(keys)].map((key) => deleteObject(key)),
+  );
   cleanup.forEach((result) => {
     if (result.status === "rejected") console.error("[project:delete-object]", result.reason);
   });
@@ -26,4 +32,3 @@ export async function DELETE(
   await deleteProjectRecord(user.id, id);
   return Response.json({ ok: true });
 }
-

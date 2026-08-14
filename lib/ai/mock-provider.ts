@@ -39,10 +39,10 @@ export class MockImageTo3DProvider implements ImageTo3DProvider {
       status: "completed",
       stage: "complete",
       result: {
-        glbUrl: "/demo/model.glb",
+        glbUrl: "/models/sofa.glb",
+        usdzUrl: "/models/sofa.usdz",
         thumbnailUrl: "/ar-coffee-table.avif",
       },
     };
   }
 }
-

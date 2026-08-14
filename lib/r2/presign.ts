@@ -29,3 +29,17 @@ export async function createDownloadUrl(
   });
   return getSignedUrl(getR2Client(), command, { expiresIn });
 }
+
+export async function createInlineDownloadUrl(
+  key: string,
+  expiresIn = 3600,
+  filename = key.split("/").pop() ?? "model",
+) {
+  const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const command = new GetObjectCommand({
+    Bucket: getR2BucketName(),
+    Key: key,
+    ResponseContentDisposition: `inline; filename="${safeName}"`,
+  });
+  return getSignedUrl(getR2Client(), command, { expiresIn });
+}
