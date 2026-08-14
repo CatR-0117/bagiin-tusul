@@ -1,82 +1,146 @@
 import Link from "next/link";
-import { ArrowRight, Box, Check, Image as ImageIcon, ScanLine, ShieldCheck, Sparkles, Upload } from "lucide-react";
-import { Navbar } from "@/components/layout/navbar";
-import { InteractivePreview } from "@/components/landing/interactive-preview";
-import { getCurrentUser } from "@/lib/auth";
+import type { CSSProperties } from "react";
+import {
+  ArrowDown,
+  ArrowUpRight,
+  Box,
+  MousePointer2,
+  QrCode,
+  ScanLine,
+} from "lucide-react";
+import { ModelViewer } from "@/components/model/model-viewer";
+import { showcaseModels } from "@/lib/showcase-models";
 
-export const dynamic = "force-dynamic";
-
-export default async function HomePage() {
-  const user = await getCurrentUser();
-  const cta = user ? "/create" : "/auth/signup";
+export default function HomePage() {
+  const featured = showcaseModels[0];
 
   return (
-    <main className="landing-page">
-      <Navbar user={user} />
-      <section className="hero-section">
-        <div className="hero-grid" aria-hidden="true" />
-        <div className="hero-copy">
-          <span className="eyebrow"><Sparkles size={14} /> AI image-to-spatial studio</span>
-          <h1>Turn images into 3D.<br /><em>See them in your world.</em></h1>
-          <p>Upload a single product image and SnapAR turns it into a ready-to-share 3D model—complete with a mobile AR experience.</p>
-          <div className="hero-actions">
-            <Link className="button button-primary" href={cta}>Create your first 3D model <ArrowRight size={18} /></Link>
-            <a className="text-link" href="#workflow">See how it works <span>↓</span></a>
+    <main className="showcase-site">
+      <header className="showcase-nav">
+        <Link className="showcase-brand" href="/" aria-label="Object Room нүүр хуудас">
+          OBJECT ROOM
+          <span>3D / DEMO</span>
+        </Link>
+        <nav aria-label="Үндсэн цэс">
+          <a href="#models">Загварууд</a>
+          <span><i /> Бүртгэл шаардлагагүй</span>
+        </nav>
+      </header>
+
+      <section className="showcase-hero">
+        <div className="showcase-hero-copy">
+          <span className="showcase-kicker"><Box size={14} /> Нээлттэй 3D үзүүлэн</span>
+          <h1>Загварыг<br /><em>ойроос хар.</em></h1>
+          <p>
+            Таван бодит 3D загварыг эргүүлж, ойртуулж үзээрэй. Нэвтрэх,
+            бүртгүүлэх шаардлагагүй — QR-ийг уншуулаад утсан дээрээ шууд нээнэ.
+          </p>
+          <div className="showcase-hero-actions">
+            <a className="showcase-primary-button" href="#models">
+              Загваруудыг үзэх <ArrowDown size={17} />
+            </a>
+            <span><MousePointer2 size={16} /> Чирэх · Эргүүлэх · Ойртуулах</span>
           </div>
-          <div className="hero-proof">
-            <span><Check size={15} /> No 3D skills needed</span>
-            <span><Check size={15} /> GLB + mobile AR</span>
-          </div>
+          <dl className="showcase-stats">
+            <div><dt>Загвар</dt><dd>05</dd></div>
+            <div><dt>Формат</dt><dd>GLB</dd></div>
+            <div><dt>Хандалт</dt><dd>OPEN</dd></div>
+          </dl>
         </div>
-        <div className="hero-object" aria-label="Image transforming into a 3D object and AR view">
-          <div className="orbit orbit-one" />
-          <div className="orbit orbit-two" />
-          <div className="spatial-card card-image"><ImageIcon size={22} /><small>01 / IMAGE</small></div>
-          <div className="spatial-cube"><span /><span /><span /></div>
-          <div className="spatial-card card-ar"><ScanLine size={22} /><small>03 / AR READY</small></div>
-          <div className="object-status"><i /> MODEL GENERATED <strong>00:42</strong></div>
+
+        <div className="showcase-hero-object">
+          <div className="showcase-object-label">
+            <span><i /> LIVE MODEL</span>
+            <small>{featured.number} / {showcaseModels.length.toString().padStart(2, "0")}</small>
+          </div>
+          <ModelViewer
+            src={featured.src}
+            ar={false}
+            autoRotate
+            className="showcase-hero-viewer"
+          />
+          <div className="showcase-object-caption">
+            <div>
+              <small>{featured.englishName}</small>
+              <strong>{featured.name}</strong>
+            </div>
+            <Link href={`/view/${featured.slug}`} aria-label={`${featured.name} дэлгэрэнгүй үзэх`}>
+              <ArrowUpRight size={21} />
+            </Link>
+          </div>
         </div>
       </section>
 
-      <section className="workflow-section" id="workflow">
-        <div className="section-heading">
-          <span className="eyebrow">From flat to spatial</span>
-          <h2>Three steps. One continuous flow.</h2>
-          <p>No complex modeling software, exporting rituals, or AR engineering.</p>
-        </div>
-        <div className="workflow-grid">
-          {[
-            { number: "01", icon: Upload, title: "Upload an image", body: "Choose a clear JPG, PNG, or WebP product shot. Your file uploads directly to secure object storage." },
-            { number: "02", icon: Box, title: "Generate the model", body: "AI reconstructs geometry and materials, then packages an interactive GLB and optional USDZ." },
-            { number: "03", icon: ScanLine, title: "Place it in AR", body: "Share a QR link. Any phone can open the preview and launch a native AR experience." },
-          ].map(({ number, icon: Icon, title, body }) => (
-            <article key={number} className="workflow-card">
-              <div><span>{number}</span><Icon size={21} /></div>
-              <h3>{title}</h3><p>{body}</p>
+      <section className="showcase-collection" id="models">
+        <header className="showcase-section-heading">
+          <div>
+            <span>01 — НИЙТИЙН САН</span>
+            <h2>Таван загвар.<br />Хязгааргүй өнцөг.</h2>
+          </div>
+          <p>
+            Загвар дээр дарж тусдаа үзэх хуудас руу орно. Тэндээс QR кодыг
+            уншуулж хүссэн төхөөрөмж дээрээ ижил загварыг нээж болно.
+          </p>
+        </header>
+
+        <div className="showcase-grid">
+          {showcaseModels.map((model) => (
+            <article
+              className="showcase-card"
+              key={model.slug}
+              style={{
+                "--model-surface": model.surface,
+                "--model-accent": model.accent,
+              } as CSSProperties}
+            >
+              <div className="showcase-card-visual">
+                <span className="showcase-card-number">{model.number}</span>
+                <span className="showcase-card-format">GLB · {model.fileSize}</span>
+                <ModelViewer
+                  src={model.src}
+                  ar={false}
+                  autoRotate
+                  className="showcase-card-viewer"
+                />
+              </div>
+              <div className="showcase-card-copy">
+                <div>
+                  <span>{model.category}</span>
+                  <h3>{model.name}</h3>
+                  <small>{model.englishName}</small>
+                </div>
+                <Link href={`/view/${model.slug}`} aria-label={`${model.name} загвар нээх`}>
+                  Нээх <ArrowUpRight size={16} />
+                </Link>
+              </div>
             </article>
           ))}
         </div>
       </section>
 
-      <section className="feature-section" id="features">
-        <div className="feature-visual"><InteractivePreview /></div>
-        <div className="feature-copy">
-          <span className="eyebrow">Built for real workflows</span>
-          <h2>Private by default.<br />Ready to share.</h2>
-          <p>Every model belongs to your workspace. Files stay in dedicated object storage, while signed links keep the viewer fast and secure.</p>
-          <ul>
-            <li><ShieldCheck size={19} /><span><strong>Secure uploads</strong>Direct, presigned transfers to Cloudflare R2.</span></li>
-            <li><Box size={19} /><span><strong>Interactive 3D</strong>Orbit, zoom, inspect, and download your GLB.</span></li>
-            <li><ScanLine size={19} /><span><strong>Instant mobile AR</strong>One QR route for Android Scene Viewer and iOS Quick Look.</span></li>
-          </ul>
+      <section className="showcase-how">
+        <div>
+          <span><ScanLine size={20} /></span>
+          <h3>1. Загвараа сонго</h3>
+          <p>Галерейгаас хүссэн загвараа нээж 360° орчноос үзнэ.</p>
+        </div>
+        <div>
+          <span><QrCode size={20} /></span>
+          <h3>2. QR-ийг уншуул</h3>
+          <p>Камерын апп-аар QR кодыг уншуулаад утсан дээрээ нээнэ.</p>
+        </div>
+        <div>
+          <span><MousePointer2 size={20} /></span>
+          <h3>3. Шууд үз</h3>
+          <p>Нэвтрэх дэлгэц, бүртгэлийн алхамгүйгээр загварт шууд орно.</p>
         </div>
       </section>
 
-      <section className="landing-cta">
-        <div><span className="eyebrow">Your next product shot can move</span><h2>Make it spatial in minutes.</h2></div>
-        <Link className="button button-light" href={cta}>Start creating <ArrowRight size={18} /></Link>
-      </section>
-      <footer className="landing-footer"><span>SnapAR</span><small>IMAGE → 3D → AR</small><small>© 2026 SnapAR Studio</small></footer>
+      <footer className="showcase-footer">
+        <strong>OBJECT ROOM</strong>
+        <span>PUBLIC 3D SHOWCASE · 2026</span>
+        <span>NO SIGN-UP / NO LOGIN</span>
+      </footer>
     </main>
   );
 }

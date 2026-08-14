@@ -15,20 +15,20 @@ export const viewport: Viewport = {
 };
 
 const metadata: Metadata = {
-  title: { default: "SnapAR — Image to 3D to AR", template: "%s · SnapAR" },
-  description: "Turn one product image into an interactive 3D model and place it in your world with AR.",
-  keywords: ["AI 3D", "image to 3D", "augmented reality", "GLB", "USDZ"],
+  title: { default: "Object Room — Нээлттэй 3D үзүүлэн", template: "%s · Object Room" },
+  description: "Таван 3D загварыг бүртгэлгүйгээр 360° үзэж, QR холбоосоор утсан дээрээ нээнэ.",
+  keywords: ["3D model", "3D viewer", "GLB", "QR", "Mongolia"],
   openGraph: {
-    title: "SnapAR — Image to 3D to AR",
-    description: "Turn one product image into an interactive 3D model and place it in AR.",
+    title: "Object Room — Нээлттэй 3D үзүүлэн",
+    description: "Таван 3D загварыг бүртгэлгүйгээр бүх өнцгөөс үзээрэй.",
     type: "website",
-    images: [{ url: "/og.png", width: 1727, height: 911, alt: "SnapAR image to 3D to AR studio" }],
+    images: [{ url: "/og-object-room.png", width: 1536, height: 1024, alt: "Object Room нээлттэй 3D үзүүлэн" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "SnapAR — Image to 3D to AR",
-    description: "One image becomes an interactive 3D model and mobile AR experience.",
-    images: ["/og.png"],
+    title: "Object Room — Нээлттэй 3D үзүүлэн",
+    description: "Таван 3D загварыг бүртгэлгүйгээр бүх өнцгөөс үзээрэй.",
+    images: ["/og-object-room.png"],
   },
 };
 
@@ -40,6 +40,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
-  return <html lang="en" className={`${sans.variable} ${mono.variable}`}><body>{children}</body></html>;
+  return <html lang="mn" className={`${sans.variable} ${mono.variable}`}><body>{children}</body></html>;
 }
-
