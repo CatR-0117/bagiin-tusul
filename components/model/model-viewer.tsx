@@ -67,6 +67,8 @@ export function ModelViewer({
     props.ar = "";
     props["ar-modes"] = "webxr scene-viewer quick-look";
     props["ar-scale"] = "auto";
+    props["ar-placement"] = "floor";
+    props["xr-environment"] = "";
   }
 
   return (
@@ -76,4 +78,3 @@ export function ModelViewer({
     </div>
   );
 }
-

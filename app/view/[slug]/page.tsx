@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { notFound } from "next/navigation";
 import { ArQrCode } from "@/components/ar/qr-code";
-import { ModelViewer } from "@/components/model/model-viewer";
+import { PublicArViewer } from "@/components/model/public-ar-viewer";
 import { getRequestOrigin } from "@/lib/urls";
 import { getShowcaseModel, showcaseModels } from "@/lib/showcase-models";
 
@@ -44,7 +44,7 @@ export default async function ViewModelPage({ params }: ViewModelPageProps) {
   const previous = showcaseModels[(index - 1 + showcaseModels.length) % showcaseModels.length];
   const next = showcaseModels[(index + 1) % showcaseModels.length];
   const origin = await getRequestOrigin();
-  const shareUrl = `${origin}/view/${model.slug}`;
+  const shareUrl = `${origin}/view/${model.slug}#ar`;
 
   return (
     <main className="public-model-page">
@@ -57,12 +57,12 @@ export default async function ViewModelPage({ params }: ViewModelPageProps) {
       </header>
 
       <section className="public-model-layout">
-        <div className="public-model-stage">
+        <div className="public-model-stage" id="ar">
           <div className="public-stage-head">
             <span><i /> INTERACTIVE 3D</span>
             <small>{model.number} / {showcaseModels.length.toString().padStart(2, "0")}</small>
           </div>
-          <ModelViewer src={model.src} autoRotate className="public-detail-viewer" />
+          <PublicArViewer src={model.src} name={model.name} />
           <div className="public-stage-help">
             <span><MousePointer2 size={15} /> Чирж эргүүлэх</span>
             <span><ScanLine size={15} /> Ойртуулж харах</span>
@@ -79,7 +79,7 @@ export default async function ViewModelPage({ params }: ViewModelPageProps) {
           <dl className="public-model-meta">
             <div><dt><Box size={15} /> Формат</dt><dd>GLB / PBR</dd></div>
             <div><dt><Smartphone size={15} /> Төхөөрөмж</dt><dd>Утас + компьютер</dd></div>
-            <div><dt><ScanLine size={15} /> Хандалт</dt><dd>Нээлттэй</dd></div>
+            <div><dt><ScanLine size={15} /> Горим</dt><dd>AR + 3D</dd></div>
           </dl>
 
           <section className="public-qr-card" id="qr">
