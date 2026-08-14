@@ -73,7 +73,7 @@ export const showcaseModels: ShowcaseModel[] = [
     description:
       "Энгийн бүтээгдэхүүний танилцуулгыг интерактив 3D хэлбэрээр хэрхэн үзүүлэх жишээ.",
     src: "/models/tissue-box.glb",
-    fileSize: "793 KB",
+    fileSize: "416 KB",
     surface: "#d5c9c5",
     accent: "#6e2c4c",
   },
