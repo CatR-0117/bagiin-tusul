@@ -20,6 +20,14 @@ interface WorkerExecutionContext {
   passThroughOnException(): void;
 }
 
+const arAssetSlugs = new Set([
+  "sofa",
+  "wooden-bowl-spoon",
+  "travel-bag",
+  "dartboard",
+  "tissue-box",
+]);
+
 const worker = {
   async fetch(
     request: Request,
@@ -37,6 +45,37 @@ const worker = {
     }
 
     const url = new URL(request.url);
+
+    const arAssetMatch = url.pathname.match(
+      /^\/ar-assets\/([^/]+)\/model\.usdz$/,
+    );
+    if (arAssetMatch && arAssetSlugs.has(arAssetMatch[1])) {
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        return new Response("Method not allowed", {
+          status: 405,
+          headers: { Allow: "GET, HEAD" },
+        });
+      }
+
+      const assetUrl = new URL(
+        `/models/${arAssetMatch[1]}.usdz`,
+        request.url,
+      );
+      const assetRequest = new Request(assetUrl, request);
+      const assetResponse = env.ASSETS
+        ? await env.ASSETS.fetch(assetRequest)
+        : await fetch(assetRequest);
+      const headers = new Headers(assetResponse.headers);
+      headers.set("Content-Type", "model/vnd.usdz+zip");
+      headers.set("Content-Disposition", `inline; filename="${arAssetMatch[1]}.usdz"`);
+      headers.set("Cache-Control", "public, max-age=31536000, immutable");
+
+      return new Response(assetResponse.body, {
+        status: assetResponse.status,
+        statusText: assetResponse.statusText,
+        headers,
+      });
+    }
 
     if (url.pathname === "/_vinext/image") {
       const {

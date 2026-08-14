@@ -62,7 +62,11 @@ export default async function ViewModelPage({ params }: ViewModelPageProps) {
             <span><i /> INTERACTIVE 3D</span>
             <small>{model.number} / {showcaseModels.length.toString().padStart(2, "0")}</small>
           </div>
-          <PublicArViewer src={model.src} name={model.name} />
+          <PublicArViewer
+            src={model.src}
+            iosSrc={model.iosSrc}
+            name={model.name}
+          />
           <div className="public-stage-help">
             <span><MousePointer2 size={15} /> Чирж эргүүлэх</span>
             <span><ScanLine size={15} /> Ойртуулж харах</span>

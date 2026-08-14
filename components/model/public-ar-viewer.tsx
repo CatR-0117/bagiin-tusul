@@ -11,14 +11,15 @@ import { MODEL_VIEWER_SRC } from "@/lib/cdn";
 
 export function PublicArViewer({
   src,
+  iosSrc,
   name,
 }: {
   src: string;
+  iosSrc: string;
   name: string;
 }) {
   const [viewer, setViewer] = useState<ModelViewerElement | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
 
   ReactDOM.preinitModule(MODEL_VIEWER_SRC, {
     crossOrigin: "anonymous",
@@ -29,8 +30,63 @@ export function PublicArViewer({
     fetchPriority: "high",
   });
 
+  function openQuickLook() {
+    const anchor = document.createElement("a");
+    const image = document.createElement("img");
+    anchor.rel = "ar";
+    anchor.href = new URL(iosSrc, window.location.href).toString();
+    anchor.style.display = "none";
+    image.alt = "";
+    anchor.appendChild(image);
+    document.body.appendChild(anchor);
+    anchor.click();
+    window.setTimeout(() => anchor.remove(), 1000);
+  }
+
+  function openSceneViewer() {
+    const pageUrl = new URL(window.location.href);
+    const modelUrl = new URL(src, pageUrl);
+    const params = new URLSearchParams(modelUrl.search);
+
+    pageUrl.hash = "model-viewer-no-ar-fallback";
+    modelUrl.hash = "";
+    params.set("mode", "ar_preferred");
+    params.set("disable_occlusion", "true");
+
+    const intent =
+      `intent://arvr.google.com/scene-viewer/1.2?${params.toString()}` +
+      `&file=${encodeURIComponent(modelUrl.toString())}` +
+      "#Intent;scheme=https;package=com.google.android.googlequicksearchbox;" +
+      "action=android.intent.action.VIEW;" +
+      `S.browser_fallback_url=${encodeURIComponent(pageUrl.toString())};end;`;
+
+    window.location.href = intent;
+  }
+
   async function openAr() {
-    if (!viewer) return;
+    const userAgent = navigator.userAgent;
+    const isIos =
+      /iPhone|iPad|iPod/i.test(userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+    setMessage(null);
+
+    if (isIos) {
+      openQuickLook();
+      return;
+    }
+
+    if (/Android/i.test(userAgent)) {
+      openSceneViewer();
+      return;
+    }
+
+    if (!viewer) {
+      setMessage(
+        "AR горимыг iPhone эсвэл Android утаснаас шууд нээх боломжтой.",
+      );
+      return;
+    }
 
     if (!viewer.canActivateAR) {
       setMessage(
@@ -53,11 +109,11 @@ export function PublicArViewer({
     <>
       <ModelViewer
         src={src}
+        iosSrc={iosSrc}
         ar
         autoRotate
         className="public-detail-viewer"
         onReady={setViewer}
-        onProgress={setProgress}
       />
       <div className="public-ar-control" id="ar-action">
         {message && <p role="status">{message}</p>}
@@ -65,13 +121,10 @@ export function PublicArViewer({
           className="public-ar-button"
           type="button"
           onClick={openAr}
-          disabled={!viewer}
           aria-label={`${name} загварыг бодит орчинд AR-аар харах`}
         >
           <ScanLine size={19} />
-          {viewer
-            ? "AR-аар харах"
-            : `Загвар татаж байна · ${Math.round(progress * 100)}%`}
+          AR-аар шууд харах
         </button>
       </div>
     </>
