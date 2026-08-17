@@ -7,6 +7,7 @@ import { loadModelViewer } from "@/lib/cdn";
 export type ModelViewerElement = HTMLElement & {
   activateAR: () => Promise<void> | void;
   canActivateAR: boolean;
+  loaded: boolean;
 };
 
 const ModelViewerTag = "model-viewer" as unknown as FC<Record<string, unknown>>;
@@ -54,6 +55,15 @@ export function ModelViewer({
 
     onElement?.(node);
 
+    const handleLoad = () => {
+      setLoaded(true);
+      setProgress(1);
+      onProgress?.(1);
+      onReady?.(node);
+    };
+
+    const handleError = () => setFailed(true);
+
     const handleProgress = (event: Event) => {
       const next = Math.min(
         1,
@@ -67,9 +77,20 @@ export function ModelViewer({
       onProgress?.(next);
     };
 
+    node.addEventListener("load", handleLoad);
+    node.addEventListener("error", handleError);
     node.addEventListener("progress", handleProgress);
-    return () => node.removeEventListener("progress", handleProgress);
-  }, [defined, onElement, onProgress]);
+
+    // The model may finish between custom-element definition and this effect.
+    // `loaded` is the authoritative state after the most recent `src` change.
+    if (node.loaded) handleLoad();
+
+    return () => {
+      node.removeEventListener("load", handleLoad);
+      node.removeEventListener("error", handleError);
+      node.removeEventListener("progress", handleProgress);
+    };
+  }, [defined, onElement, onProgress, onReady]);
 
   if (failed) return <div className={`model-viewer-error ${className}`}><Box size={32} /><span>3D загвар ачаалагдсангүй.</span></div>;
 
@@ -85,13 +106,6 @@ export function ModelViewer({
     loading,
     reveal: "auto",
     className: `model-viewer-element ${className}`,
-    onLoad: () => {
-      setLoaded(true);
-      setProgress(1);
-      onProgress?.(1);
-      if (ref.current) onReady?.(ref.current);
-    },
-    onError: () => setFailed(true),
   };
   if (poster) props.poster = poster;
   if (iosSrc) props["ios-src"] = iosSrc;
