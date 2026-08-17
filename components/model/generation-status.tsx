@@ -6,10 +6,10 @@ import { useEffect, useState } from "react";
 import type { ProjectStatus } from "@/types/project";
 
 const STAGES = [
-  { key: "generating", label: "Generating 3D model…" },
-  { key: "optimizing", label: "Optimizing model…" },
-  { key: "converting", label: "Preparing iPhone AR version…" },
-  { key: "ready", label: "Ready" },
+  { key: "generating", label: "3D загвар үүсгэж байна…" },
+  { key: "optimizing", label: "Загварыг сайжруулж байна…" },
+  { key: "converting", label: "iPhone AR хувилбар бэлтгэж байна…" },
+  { key: "ready", label: "Бэлэн" },
 ] as const;
 
 type Stage = (typeof STAGES)[number]["key"];
@@ -58,7 +58,7 @@ export function GenerationStatus({
         };
         if (cancelled) return;
         if (!response.ok || payload.status === "failed") {
-          setError(payload.error ?? "Model processing failed.");
+          setError(payload.error ?? "Загвар боловсруулахад алдаа гарлаа.");
           router.refresh();
           return;
         }
@@ -92,10 +92,10 @@ export function GenerationStatus({
         method: "POST",
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
-      if (!response.ok) throw new Error(payload.error ?? "Retry could not be started.");
+      if (!response.ok) throw new Error(payload.error ?? "Дахин боловсруулж эхэлж чадсангүй.");
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Retry could not be started.");
+      setError(caught instanceof Error ? caught.message : "Дахин боловсруулж эхэлж чадсангүй.");
       setRetrying(false);
     }
   }
@@ -105,8 +105,8 @@ export function GenerationStatus({
       <div className="generation-failed" role="alert">
         <TriangleAlert size={20} />
         <div>
-          <strong>Processing stopped</strong>
-          <span>{error ?? "The model could not be prepared."}</span>
+          <strong>Боловсруулалт зогслоо</strong>
+          <span>{error ?? "Загварыг бэлтгэж чадсангүй."}</span>
           {canRetry && (
             <button
               className="button button-secondary"
@@ -115,7 +115,7 @@ export function GenerationStatus({
               disabled={retrying}
             >
               {retrying ? <Loader2 className="spin" size={14} /> : <RefreshCw size={14} />}
-              {retrying ? "Restarting…" : "Retry processing"}
+              {retrying ? "Дахин эхлүүлж байна…" : "Дахин боловсруулах"}
             </button>
           )}
         </div>
@@ -124,7 +124,7 @@ export function GenerationStatus({
   }
 
   if (status === "ready") {
-    return <div className="generation-ready"><Check size={17} /> Model ready</div>;
+    return <div className="generation-ready"><Check size={17} /> Загвар бэлэн</div>;
   }
 
   if (compact) {
@@ -135,7 +135,7 @@ export function GenerationStatus({
   return (
     <div className="generation-panel">
       <div className="generation-panel-head">
-        <div><span className="eyebrow">Model processing</span><h3>Building your spatial asset</h3></div>
+        <div><span className="eyebrow">Загвар боловсруулж байна</span><h3>Таны орон зайн загварыг бүтээж байна</h3></div>
         <Loader2 className="spin" size={24} />
       </div>
       <ol className="generation-stages">
@@ -150,7 +150,7 @@ export function GenerationStatus({
           );
         })}
       </ol>
-      <p>The AR button becomes available only after both Android GLB and iPhone USDZ assets are ready.</p>
+      <p>Android GLB болон iPhone USDZ файлууд бэлэн болмогц AR товч идэвхжинэ.</p>
     </div>
   );
 }

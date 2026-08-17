@@ -9,10 +9,9 @@ export default async function CreatePage() {
   return (
     <AppShell user={user}>
       <div className="create-page page-enter">
-        <header className="create-header"><span className="eyebrow">New spatial asset</span><h1>Start with one image.</h1><p>Choose a clear product shot. We’ll secure it, generate the model, and prepare the AR link.</p></header>
+        <header className="create-header"><span className="eyebrow">Шинэ орон зайн загвар</span><h1>Нэг зургаас эхэлье.</h1><p>Бүтээгдэхүүний тод зураг сонгоорой. Бид 3D загварыг үүсгээд AR холбоосыг бэлтгэнэ.</p></header>
         <ImageUpload />
       </div>
     </AppShell>
   );
 }
-

@@ -13,7 +13,7 @@ export function Sidebar({ user }: { user: AppUser }) {
           <span>{user.name.slice(0, 1).toUpperCase()}</span>
           <div>
             <strong>{user.name}</strong>
-            <small>{user.isDemo ? "Demo workspace" : user.email}</small>
+            <small>{user.isDemo ? "Туршилтын ажлын хэсэг" : user.email}</small>
           </div>
         </div>
         <SettingsLink />

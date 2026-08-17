@@ -28,15 +28,15 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ id
   return (
     <AppShell user={user}>
       <div className="model-detail-page page-enter">
-        <Link className="back-link" href="/dashboard"><ArrowLeft size={16} /> Back to models</Link>
+        <Link className="back-link" href="/dashboard"><ArrowLeft size={16} /> Загварууд руу буцах</Link>
         <header className="model-detail-header">
-          <div><div className="title-status"><ProjectStatusBadge status={project.status} /><span>{project.id.slice(0, 8).toUpperCase()}</span></div><h1>{project.title || "Untitled model"}</h1><p><CalendarDays size={15} /> Created {new Date(project.created_at).toLocaleDateString("en", { month: "long", day: "numeric", year: "numeric" })}</p></div>
+          <div><div className="title-status"><ProjectStatusBadge status={project.status} /><span>{project.id.slice(0, 8).toUpperCase()}</span></div><h1>{project.title || "Нэргүй загвар"}</h1><p><CalendarDays size={15} /> {new Date(project.created_at).toLocaleDateString("mn-MN", { month: "long", day: "numeric", year: "numeric" })} үүсгэсэн</p></div>
           <div className="detail-actions">
-            {urls.originalGlbUrl && <a className="button button-secondary" href={`/api/projects/${project.id}/download?format=glb`}><Download size={16} /> Download original GLB</a>}
+            {urls.originalGlbUrl && <a className="button button-secondary" href={`/api/projects/${project.id}/download?format=glb`}><Download size={16} /> Эх GLB татах</a>}
             {project.status === "ready" ? (
-              <Link className="button button-primary" href={`/ar/${project.id}`}><ScanLine size={16} /> View in AR</Link>
+              <Link className="button button-primary" href={`/ar/${project.id}`}><ScanLine size={16} /> AR-д харах</Link>
             ) : (
-              <button className="button button-primary" type="button" disabled><ScanLine size={16} /> Preparing AR…</button>
+              <button className="button button-primary" type="button" disabled><ScanLine size={16} /> AR бэлтгэж байна…</button>
             )}
           </div>
         </header>
@@ -44,15 +44,15 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ id
         {project.status === "ready" && urls.webGlbUrl ? (
           <div className="detail-grid">
             <section className="model-stage">
-              <div className="stage-top"><span><i /> INTERACTIVE PREVIEW</span><small>Drag to orbit · Scroll to zoom</small></div>
+              <div className="stage-top"><span><i /> ИНТЕРАКТИВ ҮЗҮҮЛЭН</span><small>Чирж эргүүлэх · Гүйлгэж ойртуулах</small></div>
               <ModelViewer src={urls.webGlbUrl} iosSrc={urls.iosUsdzUrl} poster={urls.thumbnailUrl} />
-              <div className="stage-format"><Box size={15} /> GLB / PBR <span>AR READY</span></div>
+              <div className="stage-format"><Box size={15} /> GLB / PBR <span>AR БЭЛЭН</span></div>
             </section>
             <aside className="detail-aside">
               <section className="ar-share-card">
-                <span className="eyebrow">Mobile AR</span><h2>Place it in your space</h2><p>Scan with your phone to view this model in AR.</p>
+                <span className="eyebrow">Гар утасны AR</span><h2>Өөрийн орчинд байрлуулах</h2><p>QR кодыг утсаараа уншуулж загвараа AR-аар үзээрэй.</p>
                 <ArQrCode value={arUrl} />
-                <Link href={`/ar/${project.id}`}>Open AR page <ExternalLink size={14} /></Link>
+                <Link href={`/ar/${project.id}`}>AR хуудас нээх <ExternalLink size={14} /></Link>
               </section>
               <VisibilityToggle projectId={project.id} initialPublic={project.is_public} />
             </aside>
@@ -60,17 +60,17 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ id
         ) : (
           <div className="detail-grid generating-grid">
             <section className="generation-stage-placeholder">
-              {urls.sourceImageUrl ? <Image src={urls.sourceImageUrl} alt="Source image" fill sizes="(max-width: 760px) 100vw, 58vw" unoptimized /> : <ImageIcon size={42} />}
+              {urls.sourceImageUrl ? <Image src={urls.sourceImageUrl} alt="Эх зураг" fill sizes="(max-width: 760px) 100vw, 58vw" unoptimized /> : <ImageIcon size={42} />}
               <div className="scan-line" />
-              <span>Analyzing source geometry</span>
+              <span>Эх зургийн геометрийг шинжилж байна</span>
             </section>
             <GenerationStatus projectId={project.id} status={project.status} errorMessage={project.processing_error ?? project.error_message} canRetry={Boolean(project.original_glb_key)} />
           </div>
         )}
 
         <section className="project-details-card">
-          <div><ImageIcon size={17} /><span><small>Source</small>{project.source_image_key?.split("/").pop() ?? "Unavailable"}</span></div>
-          <div><Box size={17} /><span><small>3D file</small>{project.web_glb_key?.split("/").pop() ?? "Preparing…"}</span></div>
+          <div><ImageIcon size={17} /><span><small>Эх файл</small>{project.source_image_key?.split("/").pop() ?? "Байхгүй"}</span></div>
+          <div><Box size={17} /><span><small>3D файл</small>{project.web_glb_key?.split("/").pop() ?? "Бэлтгэж байна…"}</span></div>
           <DeleteProjectButton projectId={project.id} />
         </section>
       </div>

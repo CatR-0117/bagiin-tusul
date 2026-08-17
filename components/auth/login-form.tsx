@@ -32,7 +32,7 @@ export function LoginForm({
     if (!configured) {
       const response = await fetch("/api/auth/demo", { method: "POST" });
       if (!response.ok) {
-        setError("Demo access could not be started.");
+        setError("Туршилтын орчинд нэвтэрч чадсангүй.");
         setPending(false);
         return;
       }
@@ -43,7 +43,7 @@ export function LoginForm({
 
     const parsed = schema.safeParse({ email: form.get("email"), password: form.get("password") });
     if (!parsed.success) {
-      setError("Enter a valid email and a password of at least 6 characters.");
+      setError("Зөв имэйл болон 6-аас доошгүй тэмдэгттэй нууц үг оруулна уу.");
       setPending(false);
       return;
     }
@@ -60,27 +60,26 @@ export function LoginForm({
   return (
     <div className="auth-form-wrap">
       <GoogleLogin configured={configured} next={next} />
-      <div className="auth-divider"><span>or continue with email</span></div>
+      <div className="auth-divider"><span>эсвэл имэйлээр үргэлжлүүлэх</span></div>
       <form className="auth-form" onSubmit={login}>
-        <label htmlFor="email">Email address</label>
+        <label htmlFor="email">Имэйл хаяг</label>
         <input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" required={configured} disabled={!configured} />
         <div className="label-row">
-          <label htmlFor="password">Password</label>
-          <Link href="/auth/forgot-password">Forgot password?</Link>
+          <label htmlFor="password">Нууц үг</label>
+          <Link href="/auth/forgot-password">Нууц үгээ мартсан уу?</Link>
         </div>
         <input id="password" name="password" type="password" autoComplete="current-password" placeholder="••••••••" required={configured} disabled={!configured} />
         {error && <p className="form-error" role="alert">{error}</p>}
         {!configured && (
-          <p className="demo-notice"><strong>Local demo mode</strong>Supabase is not configured, so this opens a safe sample workspace.</p>
+          <p className="demo-notice"><strong>Туршилтын горим</strong>Supabase тохируулаагүй тул жишээ ажлын хэсэг нээгдэнэ.</p>
         )}
         <button className="button button-primary button-wide" type="submit" disabled={pending}>
           {pending ? <Loader2 className="spin" size={18} /> : null}
-          {configured ? (pending ? "Signing in…" : "Log in") : (pending ? "Opening demo…" : "Enter demo workspace")}
+          {configured ? (pending ? "Нэвтэрч байна…" : "Нэвтрэх") : (pending ? "Туршилт нээж байна…" : "Туршилтын орчинд орох")}
           {!pending && <ArrowRight size={17} />}
         </button>
       </form>
-      <p className="auth-switch">New to SnapAR? <Link href="/auth/signup">Create an account</Link></p>
+      <p className="auth-switch">Шинээр эхэлж байна уу? <Link href="/auth/signup">Бүртгэл үүсгэх</Link></p>
     </div>
   );
 }
-

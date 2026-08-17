@@ -16,7 +16,7 @@ async function jsonRequest<T>(url: string, init: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json", ...init.headers },
   });
   const payload = (await response.json().catch(() => ({}))) as { error?: string } & Partial<T>;
-  if (!response.ok) throw new Error(payload.error ?? "Something went wrong. Please try again.");
+  if (!response.ok) throw new Error(payload.error ?? "Алдаа гарлаа. Дахин оролдоно уу.");
   return payload as T;
 }
 
@@ -36,8 +36,8 @@ function putWithProgress(
     };
     xhr.onload = () => xhr.status >= 200 && xhr.status < 300
       ? resolve()
-      : reject(new Error("The image upload failed."));
-    xhr.onerror = () => reject(new Error("The image upload was interrupted."));
+      : reject(new Error("Зураг оруулахад алдаа гарлаа."));
+    xhr.onerror = () => reject(new Error("Зураг оруулах явц тасалдлаа."));
     xhr.send(file);
   });
 }
@@ -62,11 +62,11 @@ export function ImageUpload() {
     const extension = next.name.split(".").pop()?.toLowerCase();
     const validExtension = ["jpg", "jpeg", "png", "webp"].includes(extension ?? "");
     if (!ALLOWED_TYPES.has(next.type) || !validExtension) {
-      setError("Choose a JPG, PNG, or WebP image.");
+      setError("JPG, PNG эсвэл WebP зураг сонгоно уу.");
       return;
     }
     if (next.size > MAX_BYTES) {
-      setError("Your image must be 10 MB or smaller.");
+      setError("Зураг 10 MB буюу түүнээс бага байна.");
       return;
     }
     if (preview) URL.revokeObjectURL(preview);
@@ -108,7 +108,7 @@ export function ImageUpload() {
       router.push(`/models/${projectId}`);
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The model could not be started.");
+      setError(caught instanceof Error ? caught.message : "Загвар үүсгэлтийг эхлүүлж чадсангүй.");
       setBusy(false);
     }
   }
@@ -116,9 +116,9 @@ export function ImageUpload() {
   if (busy) {
     return (
       <div className="upload-workspace upload-busy">
-        <div className="busy-visual"><Loader2 className="spin" size={30} /><span>SECURE TRANSFER</span></div>
-        <h2>Preparing your model</h2>
-        <p>Keep this tab open while the source image is secured and handed to the generation pipeline.</p>
+        <div className="busy-visual"><Loader2 className="spin" size={30} /><span>АЮУЛГҮЙ ДАМЖУУЛАЛТ</span></div>
+        <h2>Загварыг бэлтгэж байна</h2>
+        <p>Эх зургийг аюулгүй дамжуулж дуустал энэ цонхыг нээлттэй үлдээнэ үү.</p>
         <UploadProgress step={step} percent={percent} />
       </div>
     );
@@ -135,10 +135,10 @@ export function ImageUpload() {
           onDrop={drop}
         >
           <div className="dropzone-icon"><ImagePlus size={27} /></div>
-          <h2>Drop your product image here</h2>
-          <p>A clean, well-lit photo with one visible object works best.</p>
-          <button className="button button-secondary" type="button" onClick={() => inputRef.current?.click()}><Upload size={17} /> Choose image</button>
-          <span>JPG, PNG, or WEBP · MAX 10 MB</span>
+          <h2>Бүтээгдэхүүний зургаа энд оруулна уу</h2>
+          <p>Нэг объект тод харагдсан, гэрэл сайтай зураг хамгийн сайн үр дүнтэй.</p>
+          <button className="button button-secondary" type="button" onClick={() => inputRef.current?.click()}><Upload size={17} /> Зураг сонгох</button>
+          <span>JPG, PNG ЭСВЭЛ WEBP · ДЭЭД ХЭМЖЭЭ 10 MB</span>
           <input ref={inputRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event: ChangeEvent<HTMLInputElement>) => choose(event.target.files?.[0])} />
         </div>
       ) : (
@@ -146,26 +146,25 @@ export function ImageUpload() {
           <div className="source-preview">
             {/* Local blob previews cannot use the optimized image pipeline. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={preview ?? ""} alt="Selected source" />
-            <span className="source-chip"><FileImage size={14} /> SOURCE IMAGE</span>
-            <button type="button" aria-label="Remove image" onClick={() => { setFile(null); setPreview(null); }}><X size={18} /></button>
+            <img src={preview ?? ""} alt="Сонгосон эх зураг" />
+            <span className="source-chip"><FileImage size={14} /> ЭХ ЗУРАГ</span>
+            <button type="button" aria-label="Зураг хасах" onClick={() => { setFile(null); setPreview(null); }}><X size={18} /></button>
           </div>
           <div className="source-settings">
-            <span className="eyebrow">Source ready</span>
-            <h2>Give your model a name</h2>
-            <p>This is how it will appear in your spatial library.</p>
-            <label htmlFor="project-title">Project title</label>
+            <span className="eyebrow">Эх зураг бэлэн</span>
+            <h2>Загвартаа нэр өгнө үү</h2>
+            <p>Энэ нэр орон зайн санд харагдана.</p>
+            <label htmlFor="project-title">Төслийн нэр</label>
             <input id="project-title" value={title} maxLength={100} onChange={(event) => setTitle(event.target.value)} />
-            <dl><div><dt>File</dt><dd>{file.name}</dd></div><div><dt>Size</dt><dd>{(file.size / 1024 / 1024).toFixed(1)} MB</dd></div><div><dt>Output</dt><dd>GLB + AR link</dd></div></dl>
-            <button className="button button-primary button-wide" type="button" onClick={generate} disabled={!title.trim()}><Sparkles size={17} /> Generate 3D model</button>
-            <button className="replace-file" type="button" onClick={() => inputRef.current?.click()}><RotateCcw size={15} /> Choose a different image</button>
+            <dl><div><dt>Файл</dt><dd>{file.name}</dd></div><div><dt>Хэмжээ</dt><dd>{(file.size / 1024 / 1024).toFixed(1)} MB</dd></div><div><dt>Гаралт</dt><dd>GLB + AR холбоос</dd></div></dl>
+            <button className="button button-primary button-wide" type="button" onClick={generate} disabled={!title.trim()}><Sparkles size={17} /> 3D загвар үүсгэх</button>
+            <button className="replace-file" type="button" onClick={() => inputRef.current?.click()}><RotateCcw size={15} /> Өөр зураг сонгох</button>
             <input ref={inputRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => choose(event.target.files?.[0])} />
           </div>
         </div>
       )}
       {error && <p className="upload-error" role="alert">{error}</p>}
-      {!file && <div className="upload-tips"><strong>For the best result</strong><span>Use one object</span><span>Keep the full shape visible</span><span>Choose an even background</span></div>}
+      {!file && <div className="upload-tips"><strong>Сайн үр дүнд</strong><span>Нэг объект ашиглах</span><span>Бүтэн хэлбэрийг харагдуулах</span><span>Жигд дэвсгэр сонгох</span></div>}
     </div>
   );
 }
-

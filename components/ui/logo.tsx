@@ -6,8 +6,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
       <span className="logo-mark" aria-hidden="true">
         <span />
       </span>
-      <span>SnapAR</span>
+      <span>OBJECT ROOM</span>
     </Link>
   );
 }
-

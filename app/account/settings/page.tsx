@@ -10,13 +10,12 @@ export default async function AccountSettingsPage() {
     <AppShell user={user}>
       <div className="settings-page page-enter">
         <header>
-          <span className="eyebrow">Account</span>
-          <h1>Workspace settings</h1>
-          <p>Manage your profile and account security.</p>
+          <span className="eyebrow">Бүртгэл</span>
+          <h1>Ажлын хэсгийн тохиргоо</h1>
+          <p>Хувийн мэдээлэл болон бүртгэлийн аюулгүй байдлаа удирдана уу.</p>
         </header>
         <AccountSettingsForm initialName={user.name} email={user.email} isDemo={user.isDemo} />
       </div>
     </AppShell>
   );
 }
-

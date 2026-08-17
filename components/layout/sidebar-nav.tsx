@@ -5,9 +5,9 @@ import { Box, LayoutGrid, Plus, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 const links = [
-  { href: "/dashboard", label: "Overview", icon: LayoutGrid },
-  { href: "/create", label: "Create model", icon: Plus },
-  { href: "/models", label: "My models", icon: Box },
+  { href: "/dashboard", label: "Тойм", icon: LayoutGrid },
+  { href: "/create", label: "Загвар үүсгэх", icon: Plus },
+  { href: "/models", label: "Миний загварууд", icon: Box },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -18,7 +18,7 @@ function isActive(pathname: string, href: string) {
 export function SidebarNav() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Workspace navigation">
+    <nav aria-label="Ажлын хэсгийн цэс">
       {links.map(({ href, label, icon: Icon }) => {
         const active = isActive(pathname, href);
         return (
@@ -36,7 +36,7 @@ export function SettingsLink() {
   const pathname = usePathname();
   const active = pathname.startsWith("/account/settings");
   return (
-    <Link className={`settings-link ${active ? "active" : ""}`} href="/account/settings" aria-label="Account settings" aria-current={active ? "page" : undefined}>
+    <Link className={`settings-link ${active ? "active" : ""}`} href="/account/settings" aria-label="Бүртгэлийн тохиргоо" aria-current={active ? "page" : undefined}>
       <Settings size={17} aria-hidden="true" />
     </Link>
   );
@@ -45,17 +45,16 @@ export function SettingsLink() {
 export function MobileAppNav() {
   const pathname = usePathname();
   return (
-    <nav className="mobile-bottom-nav" aria-label="Mobile workspace navigation">
+    <nav className="mobile-bottom-nav" aria-label="Гар утасны ажлын цэс">
       {links.map(({ href, label, icon: Icon }) => {
         const active = isActive(pathname, href);
         return (
           <Link key={href} href={href} className={active ? "active" : ""} aria-current={active ? "page" : undefined}>
             <Icon size={19} />
-            <span>{label === "Create model" ? "Create" : label === "My models" ? "Models" : label}</span>
+            <span>{label === "Загвар үүсгэх" ? "Үүсгэх" : label === "Миний загварууд" ? "Загварууд" : label}</span>
           </Link>
         );
       })}
     </nav>
   );
 }
-

@@ -11,9 +11,13 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const user = await getCurrentUser();
   const project = await getProjectForAr(user?.id ?? null, id);
+  const title = project ? `${project.title || "3D загвар"} · AR` : "AR загвар";
+  const description = "3D загварыг бодит орчиндоо AR-аар байрлуулж үзээрэй.";
   return {
-    title: project ? `${project.title || "3D model"} in AR — SnapAR` : "AR model — SnapAR",
-    description: "Place this AI-generated 3D model in your space.",
+    title,
+    description,
+    openGraph: { title, description, type: "website", images: [] },
+    twitter: { card: "summary", title, description, images: [] },
   };
 }
 
@@ -27,7 +31,7 @@ export default async function ArPage({ params }: { params: Promise<{ id: string 
   return (
     <ArViewer
       projectId={project.id}
-      title={project.title || "Untitled model"}
+      title={project.title || "Нэргүй загвар"}
       initialAssets={{
         webGlb: urls.webGlbUrl,
         androidGlb: urls.androidGlbUrl,

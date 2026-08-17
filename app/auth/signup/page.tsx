@@ -9,9 +9,8 @@ export const dynamic = "force-dynamic";
 export default async function SignupPage() {
   if (await getCurrentUser()) redirect("/dashboard");
   return (
-    <AuthShell eyebrow="Create your workspace" title="Make your first model." description="Start with one product image. SnapAR handles the path from pixels to presence.">
+    <AuthShell eyebrow="Ажлын хэсгээ үүсгэх" title="Анхны загвараа бүтээгээрэй." description="Бүтээгдэхүүний нэг зургаас эхэлж 3D болон AR загвар болгоно.">
       <SignupForm configured={isSupabaseConfigured()} />
     </AuthShell>
   );
 }
-

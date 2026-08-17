@@ -16,10 +16,9 @@ export default async function ModelsPage() {
   return (
     <AppShell user={user}>
       <div className="library-page page-enter">
-        <header><span className="eyebrow">Spatial library</span><h1>My models</h1><p>{projects.length} {projects.length === 1 ? "project" : "projects"} in this workspace.</p></header>
+        <header><span className="eyebrow">Орон зайн сан</span><h1>Миний загварууд</h1><p>Энэ ажлын хэсэгт {projects.length} төсөл байна.</p></header>
         <ModelGrid items={items} />
       </div>
     </AppShell>
   );
 }
-

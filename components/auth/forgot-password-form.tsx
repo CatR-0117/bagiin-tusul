@@ -14,7 +14,7 @@ export function ForgotPasswordForm({ configured }: { configured: boolean }) {
     setError(null);
     setMessage(null);
     if (!configured) {
-      setMessage("Password recovery is available once Supabase is configured.");
+      setMessage("Supabase тохируулсны дараа нууц үг сэргээх боломжтой.");
       return;
     }
     setPending(true);
@@ -25,20 +25,20 @@ export function ForgotPasswordForm({ configured }: { configured: boolean }) {
       redirectTo: callback.toString(),
     });
     if (resetError) setError(resetError.message);
-    else setMessage("Check your inbox for a password reset link.");
+    else setMessage("Нууц үг сэргээх холбоосыг имэйлээсээ шалгана уу.");
     setPending(false);
   }
 
   return (
     <form className="auth-form" onSubmit={submit}>
-      <label htmlFor="email">Email address</label>
+      <label htmlFor="email">Имэйл хаяг</label>
       <input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" required />
       {error && <p className="form-error">{error}</p>}
       {message && <p className="form-success">{message}</p>}
       <button className="button button-primary button-wide" type="submit" disabled={pending}>
-        {pending ? "Sending…" : "Send reset link"}
+        {pending ? "Илгээж байна…" : "Сэргээх холбоос илгээх"}
       </button>
-      <p className="auth-switch"><Link href="/auth/login">Back to login</Link></p>
+      <p className="auth-switch"><Link href="/auth/login">Нэвтрэх рүү буцах</Link></p>
     </form>
   );
 }

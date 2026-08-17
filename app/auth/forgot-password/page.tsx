@@ -4,9 +4,8 @@ import { isSupabaseConfigured } from "@/lib/config";
 
 export default function ForgotPasswordPage() {
   return (
-    <AuthShell eyebrow="Account recovery" title="Reset your password." description="Enter your email and we’ll send a secure reset link.">
+    <AuthShell eyebrow="Бүртгэл сэргээх" title="Нууц үгээ сэргээх." description="Имэйлээ оруулбал сэргээх аюулгүй холбоос илгээнэ.">
       <ForgotPasswordForm configured={isSupabaseConfigured()} />
     </AuthShell>
   );
 }
-

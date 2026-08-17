@@ -9,9 +9,8 @@ export default async function ResetPasswordPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/auth/login?error=recovery");
   return (
-    <AuthShell eyebrow="Secure recovery" title="Choose a new password." description="Use at least 8 characters and keep it unique to SnapAR.">
+    <AuthShell eyebrow="Аюулгүй сэргээх" title="Шинэ нууц үг сонгох." description="8-аас доошгүй тэмдэгттэй, давтагдаагүй нууц үг ашиглана уу.">
       <ResetPasswordForm isDemo={user.isDemo} />
     </AuthShell>
   );
 }
-

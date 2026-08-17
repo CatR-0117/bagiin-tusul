@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 const schema = z
   .object({ password: z.string().min(8), confirmPassword: z.string().min(8) })
   .refine((value) => value.password === value.confirmPassword, {
-    message: "Passwords do not match.",
+    message: "Нууц үгүүд таарахгүй байна.",
     path: ["confirmPassword"],
   });
 
@@ -27,11 +27,11 @@ export function ResetPasswordForm({ isDemo }: { isDemo: boolean }) {
       confirmPassword: form.get("confirmPassword"),
     });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Use at least 8 characters.");
+      setError(parsed.error.issues[0]?.message ?? "8-аас доошгүй тэмдэгт ашиглана уу.");
       return;
     }
     if (isDemo) {
-      setError("Demo access has no password. Configure Supabase to test password recovery.");
+      setError("Туршилтын орчин нууц үггүй. Нууц үг сэргээхийг шалгахын тулд Supabase тохируулна уу.");
       return;
     }
     setPending(true);
@@ -45,25 +45,24 @@ export function ResetPasswordForm({ isDemo }: { isDemo: boolean }) {
     return (
       <div className="reset-complete">
         <span><Check size={21} /></span>
-        <h2>Password updated</h2>
-        <p>You can continue to your workspace with the new password.</p>
-        <Link className="button button-primary button-wide" href="/dashboard">Continue to dashboard</Link>
+        <h2>Нууц үг шинэчлэгдлээ</h2>
+        <p>Шинэ нууц үгээрээ ажлын хэсэг рүү үргэлжлүүлж болно.</p>
+        <Link className="button button-primary button-wide" href="/dashboard">Ажлын хэсэг рүү орох</Link>
       </div>
     );
   }
 
   return (
     <form className="auth-form" onSubmit={submit}>
-      <label htmlFor="password">New password</label>
-      <input id="password" name="password" type="password" autoComplete="new-password" placeholder="At least 8 characters" required />
-      <label htmlFor="confirmPassword">Confirm new password</label>
-      <input id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" placeholder="Repeat the new password" required />
+      <label htmlFor="password">Шинэ нууц үг</label>
+      <input id="password" name="password" type="password" autoComplete="new-password" placeholder="8-аас доошгүй тэмдэгт" required />
+      <label htmlFor="confirmPassword">Шинэ нууц үгээ давтах</label>
+      <input id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" placeholder="Шинэ нууц үгээ дахин оруулна уу" required />
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="button button-primary button-wide" type="submit" disabled={pending}>
         {pending ? <Loader2 className="spin" size={17} /> : null}
-        {pending ? "Updating…" : "Set new password"}
+        {pending ? "Шинэчилж байна…" : "Шинэ нууц үг хадгалах"}
       </button>
     </form>
   );
 }
-

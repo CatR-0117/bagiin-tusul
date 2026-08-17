@@ -1,6 +1,6 @@
 import { Check, Loader2 } from "lucide-react";
 
-const steps = ["Creating project", "Uploading image", "Starting AI generation"];
+const steps = ["Төсөл үүсгэж байна", "Зураг оруулж байна", "AI үүсгэлтийг эхлүүлж байна"];
 
 export function UploadProgress({ step, percent }: { step: number; percent: number }) {
   return (
@@ -17,4 +17,3 @@ export function UploadProgress({ step, percent }: { step: number; percent: numbe
     </div>
   );
 }
-

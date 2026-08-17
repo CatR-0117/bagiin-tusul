@@ -16,7 +16,7 @@ const schema = z
   })
   .refine((value) => value.password === value.confirmPassword, {
     path: ["confirmPassword"],
-    message: "Passwords do not match.",
+    message: "Нууц үгүүд таарахгүй байна.",
   });
 
 export function SignupForm({ configured }: { configured: boolean }) {
@@ -33,7 +33,7 @@ export function SignupForm({ configured }: { configured: boolean }) {
     if (!configured) {
       const response = await fetch("/api/auth/demo", { method: "POST" });
       if (!response.ok) {
-        setError("Demo access could not be started.");
+        setError("Туршилтын орчинд нэвтэрч чадсангүй.");
         setPending(false);
         return;
       }
@@ -49,7 +49,7 @@ export function SignupForm({ configured }: { configured: boolean }) {
       confirmPassword: form.get("confirmPassword"),
     });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Check your account details.");
+      setError(parsed.error.issues[0]?.message ?? "Бүртгэлийн мэдээллээ шалгана уу.");
       setPending(false);
       return;
     }
@@ -70,33 +70,32 @@ export function SignupForm({ configured }: { configured: boolean }) {
       router.refresh();
       return;
     }
-    setMessage("Check your inbox to confirm your email, then return to log in.");
+    setMessage("Имэйлээ баталгаажуулаад буцаж ирэн нэвтэрнэ үү.");
     setPending(false);
   }
 
   return (
     <div className="auth-form-wrap">
       <GoogleLogin configured={configured} />
-      <div className="auth-divider"><span>or create with email</span></div>
+      <div className="auth-divider"><span>эсвэл имэйлээр бүртгүүлэх</span></div>
       <form className="auth-form" onSubmit={signup}>
-        <label htmlFor="email">Email address</label>
+        <label htmlFor="email">Имэйл хаяг</label>
         <input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" required={configured} disabled={!configured} />
-        <label htmlFor="password">Password</label>
-        <input id="password" name="password" type="password" autoComplete="new-password" placeholder="At least 8 characters" required={configured} disabled={!configured} />
-        <label htmlFor="confirmPassword">Confirm password</label>
-        <input id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" placeholder="Repeat your password" required={configured} disabled={!configured} />
-        <p className="password-hint"><Check size={14} /> Use 8 or more characters</p>
+        <label htmlFor="password">Нууц үг</label>
+        <input id="password" name="password" type="password" autoComplete="new-password" placeholder="8-аас доошгүй тэмдэгт" required={configured} disabled={!configured} />
+        <label htmlFor="confirmPassword">Нууц үгээ давтах</label>
+        <input id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" placeholder="Нууц үгээ дахин оруулна уу" required={configured} disabled={!configured} />
+        <p className="password-hint"><Check size={14} /> 8 буюу түүнээс олон тэмдэгт ашиглана уу</p>
         {error && <p className="form-error" role="alert">{error}</p>}
         {message && <p className="form-success" role="status">{message}</p>}
-        {!configured && <p className="demo-notice"><strong>Local demo mode</strong>Create a sample session without external services.</p>}
+        {!configured && <p className="demo-notice"><strong>Туршилтын горим</strong>Гадаад үйлчилгээгүйгээр жишээ орчин нээнэ.</p>}
         <button className="button button-primary button-wide" type="submit" disabled={pending}>
           {pending ? <Loader2 className="spin" size={18} /> : null}
-          {configured ? (pending ? "Creating account…" : "Create account") : (pending ? "Preparing demo…" : "Try the demo")}
+          {configured ? (pending ? "Бүртгэл үүсгэж байна…" : "Бүртгэл үүсгэх") : (pending ? "Туршилт бэлтгэж байна…" : "Туршиж үзэх")}
           {!pending && <ArrowRight size={17} />}
         </button>
       </form>
-      <p className="auth-switch">Already have an account? <Link href="/auth/login">Log in</Link></p>
+      <p className="auth-switch">Бүртгэлтэй юу? <Link href="/auth/login">Нэвтрэх</Link></p>
     </div>
   );
 }
-

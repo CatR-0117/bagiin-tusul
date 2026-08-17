@@ -1,14 +1,17 @@
 "use client";
 
-import { ScanLine } from "lucide-react";
+import { QrCode, ScanLine } from "lucide-react";
 import ReactDOM from "react-dom";
-import { useState, type MouseEvent } from "react";
+import { useState, useSyncExternalStore, type MouseEvent } from "react";
 import { QuickLookLink } from "@/components/ar/quick-look-link";
 import {
   ModelViewer,
   type ModelViewerElement,
 } from "@/components/model/model-viewer";
 import { MODEL_VIEWER_SRC } from "@/lib/cdn";
+import { platformFromBrowser } from "@/lib/platform";
+
+const noopSubscribe = () => () => {};
 
 export function PublicArViewer({
   src,
@@ -21,6 +24,11 @@ export function PublicArViewer({
 }) {
   const [viewer, setViewer] = useState<ModelViewerElement | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const platform = useSyncExternalStore(
+    noopSubscribe,
+    platformFromBrowser,
+    () => "desktop",
+  );
 
   ReactDOM.preinitModule(MODEL_VIEWER_SRC, {
     crossOrigin: "anonymous",
@@ -110,15 +118,22 @@ export function PublicArViewer({
       />
       <div className="public-ar-control" id="ar-action">
         {message && <p role="status">{message}</p>}
-        <QuickLookLink
-          className="public-ar-button"
-          href={iosSrc}
-          onClick={openAr}
-          aria-label={`${name} загварыг бодит орчинд AR-аар харах`}
-        >
-          <ScanLine size={19} />
-          AR-аар шууд харах
-        </QuickLookLink>
+        {platform === "desktop" ? (
+          <a className="public-ar-button" href="#qr">
+            <QrCode size={19} />
+            QR кодоор утсандаа нээх
+          </a>
+        ) : (
+          <QuickLookLink
+            className="public-ar-button"
+            href={iosSrc}
+            onClick={openAr}
+            aria-label={`${name} загварыг бодит орчинд AR-аар харах`}
+          >
+            <ScanLine size={19} />
+            {platform === "ios" ? "iPhone AR-д харах" : "Android AR-д харах"}
+          </QuickLookLink>
+        )}
       </div>
     </>
   );

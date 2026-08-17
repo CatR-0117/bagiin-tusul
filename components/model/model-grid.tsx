@@ -10,10 +10,10 @@ export function ModelGrid({ items }: { items: ProjectWithThumbnail[] }) {
     return (
       <div className="empty-models">
         <div className="empty-orbit"><Box size={30} /></div>
-        <span className="eyebrow">Your spatial library is empty</span>
-        <h2>Create something you can walk around.</h2>
-        <p>Start with one clear product image. We’ll guide it all the way to 3D and AR.</p>
-        <Link className="button button-primary" href="/create"><Plus size={17} /> Create your first model</Link>
+        <span className="eyebrow">Таны орон зайн сан хоосон байна</span>
+        <h2>Бүх талаас нь үзэж болох зүйл бүтээгээрэй.</h2>
+        <p>Бүтээгдэхүүний нэг тод зургаас эхэлж 3D болон AR загвар болгоно.</p>
+        <Link className="button button-primary" href="/create"><Plus size={17} /> Анхны загвараа үүсгэх</Link>
       </div>
     );
   }
@@ -21,9 +21,8 @@ export function ModelGrid({ items }: { items: ProjectWithThumbnail[] }) {
     <div className="model-grid">
       {items.map(({ project, thumbnailUrl }) => <ModelCard key={project.id} project={project} thumbnailUrl={thumbnailUrl} />)}
       <Link className="model-card create-card" href="/create">
-        <div><Plus size={24} /><h3>Create another model</h3><p>Upload a new product image</p><span>Start creating <ArrowRight size={15} /></span></div>
+        <div><Plus size={24} /><h3>Дараагийн загвараа үүсгэх</h3><p>Шинэ бүтээгдэхүүний зураг оруулах</p><span>Үүсгэж эхлэх <ArrowRight size={15} /></span></div>
       </Link>
     </div>
   );
 }
-

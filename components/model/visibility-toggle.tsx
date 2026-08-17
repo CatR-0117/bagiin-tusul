@@ -21,10 +21,10 @@ export function VisibilityToggle({ projectId, initialPublic }: { projectId: stri
     });
     if (response.ok) {
       setIsPublic(next);
-      setMessage(next ? "QR access is now enabled." : "QR access is now private.");
+      setMessage(next ? "QR холбоосыг нийтэд нээлээ." : "QR холбоосыг хувийн болголоо.");
     } else {
       const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(payload?.error ?? "Visibility could not be changed.");
+      setError(payload?.error ?? "Хандалтын тохиргоог өөрчилж чадсангүй.");
     }
     setPending(false);
   }
@@ -33,7 +33,7 @@ export function VisibilityToggle({ projectId, initialPublic }: { projectId: stri
     <div className="visibility-control">
       <button className={`visibility-toggle ${isPublic ? "is-public" : ""}`} type="button" onClick={toggle} disabled={pending} aria-pressed={isPublic}>
         {pending ? <Loader2 className="spin" size={16} /> : isPublic ? <Globe2 size={16} /> : <Lock size={16} />}
-        <span><strong>{isPublic ? "Public AR link" : "Private AR link"}</strong><small>{isPublic ? "Anyone with the QR can view" : "Only your account can open it"}</small></span>
+        <span><strong>{isPublic ? "Нийтийн AR холбоос" : "Хувийн AR холбоос"}</strong><small>{isPublic ? "QR-тэй хүн бүр үзнэ" : "Зөвхөн таны бүртгэл нээнэ"}</small></span>
       </button>
       {(message || error) && <p className={error ? "visibility-error" : "visibility-message"} role={error ? "alert" : "status"}>{error ?? message}</p>}
     </div>

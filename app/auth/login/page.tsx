@@ -17,15 +17,15 @@ export default async function LoginPage({
     ? query.next
     : "/dashboard";
   const initialError = query.error === "oauth"
-    ? "Google sign-in could not be completed. Please try again."
+    ? "Google нэвтрэлт амжилтгүй боллоо. Дахин оролдоно уу."
     : query.error === "confirmation"
-      ? "That confirmation link is invalid or expired."
+      ? "Баталгаажуулах холбоос буруу эсвэл хугацаа нь дууссан байна."
       : query.error === "recovery"
-        ? "Open the recovery link from your email before choosing a new password."
+        ? "Шинэ нууц үг сонгохоос өмнө имэйл дэх сэргээх холбоосоо нээнэ үү."
       : undefined;
 
   return (
-    <AuthShell eyebrow="Welcome back" title="Bring ideas into the room." description="Sign in to keep creating, reviewing, and sharing your spatial models.">
+    <AuthShell eyebrow="Тавтай морил" title="Санаагаа орон зайд оруул." description="Орон зайн загваруудаа үүсгэж, шалгаж, хуваалцахын тулд нэвтэрнэ үү.">
       <LoginForm configured={isSupabaseConfigured()} next={next} initialError={initialError} />
     </AuthShell>
   );

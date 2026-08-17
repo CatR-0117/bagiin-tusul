@@ -1,13 +1,13 @@
 import type { ProjectStatus } from "@/types/project";
 
 const labels: Record<ProjectStatus, string> = {
-  uploading: "Uploading",
-  uploaded: "Uploaded",
-  generating: "Generating",
-  optimizing: "Optimizing",
-  converting: "Preparing AR",
-  ready: "Ready",
-  failed: "Failed",
+  uploading: "Оруулж байна",
+  uploaded: "Оруулсан",
+  generating: "Үүсгэж байна",
+  optimizing: "Сайжруулж байна",
+  converting: "AR бэлтгэж байна",
+  ready: "Бэлэн",
+  failed: "Амжилтгүй",
 };
 
 export function ProjectStatusBadge({ status }: { status: ProjectStatus }) {

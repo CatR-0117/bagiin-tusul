@@ -19,8 +19,8 @@ export function AppShell({
       <header className="mobile-app-header">
         <Logo compact />
         <div>
-          <Link className="mobile-settings-link" href="/account/settings" aria-label="Account settings"><Settings size={18} /></Link>
-          <Link className="button button-primary button-small" href="/create">Create</Link>
+          <Link className="mobile-settings-link" href="/account/settings" aria-label="Бүртгэлийн тохиргоо"><Settings size={18} /></Link>
+          <Link className="button button-primary button-small" href="/create">Үүсгэх</Link>
         </div>
       </header>
       <main className="app-main">{children}</main>

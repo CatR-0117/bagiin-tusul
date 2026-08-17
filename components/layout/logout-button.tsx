@@ -23,8 +23,7 @@ export function LogoutButton({ isDemo }: { isDemo: boolean }) {
   return (
     <button className="logout-button" type="button" onClick={logout} disabled={pending}>
       <LogOut size={16} aria-hidden="true" />
-      <span>{pending ? "Signing out…" : "Sign out"}</span>
+      <span>{pending ? "Гарч байна…" : "Гарах"}</span>
     </button>
   );
 }
-

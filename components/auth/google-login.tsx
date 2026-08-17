@@ -17,7 +17,7 @@ export function GoogleLogin({
     setPending(true);
     setError(null);
     if (!configured) {
-      setError("Google OAuth becomes available after Supabase is configured. Use demo access below.");
+      setError("Supabase тохируулсны дараа Google нэвтрэлт ажиллана. Одоогоор туршилтын горим ашиглана уу.");
       setPending(false);
       return;
     }
@@ -37,10 +37,9 @@ export function GoogleLogin({
     <>
       <button className="google-button" type="button" onClick={continueWithGoogle} disabled={pending}>
         <span className="google-g" aria-hidden="true">G</span>
-        {pending ? "Opening Google…" : "Continue with Google"}
+        {pending ? "Google нээж байна…" : "Google-ээр үргэлжлүүлэх"}
       </button>
       {error && <p className="form-error" role="alert">{error}</p>}
     </>
   );
 }
-
