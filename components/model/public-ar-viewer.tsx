@@ -2,7 +2,8 @@
 
 import { ScanLine } from "lucide-react";
 import ReactDOM from "react-dom";
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
+import { QuickLookLink } from "@/components/ar/quick-look-link";
 import {
   ModelViewer,
   type ModelViewerElement,
@@ -30,26 +31,6 @@ export function PublicArViewer({
     fetchPriority: "high",
   });
 
-  function openQuickLook() {
-    const anchor = document.createElement("a");
-    const image = document.createElement("img");
-    anchor.rel = "ar";
-    anchor.href = new URL(iosSrc, window.location.href).toString();
-    anchor.style.position = "fixed";
-    anchor.style.width = "1px";
-    anchor.style.height = "1px";
-    anchor.style.left = "-10px";
-    anchor.style.opacity = "0";
-    anchor.style.pointerEvents = "none";
-    image.alt = "";
-    image.src =
-      "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
-    anchor.appendChild(image);
-    document.body.appendChild(anchor);
-    anchor.click();
-    window.setTimeout(() => anchor.remove(), 30000);
-  }
-
   function openSceneViewer() {
     const pageUrl = new URL(window.location.href);
     const modelUrl = new URL(src, pageUrl);
@@ -70,7 +51,7 @@ export function PublicArViewer({
     window.location.href = intent;
   }
 
-  async function openAr() {
+  function openAr(event: MouseEvent<HTMLAnchorElement>) {
     const userAgent = navigator.userAgent;
     const isIos =
       /iPhone|iPad|iPod/i.test(userAgent) ||
@@ -78,22 +59,15 @@ export function PublicArViewer({
 
     setMessage(null);
 
-    if (/Android/i.test(userAgent)) {
-      openSceneViewer();
+    if (isIos) {
+      // Let Safari handle the real, user-tapped `rel="ar"` link below.
       return;
     }
 
-    if (isIos) {
-      if (viewer?.canActivateAR) {
-        try {
-          await viewer.activateAR();
-          return;
-        } catch {
-          // The direct Quick Look link below is the iOS fallback.
-        }
-      }
+    event.preventDefault();
 
-      openQuickLook();
+    if (/Android/i.test(userAgent)) {
+      openSceneViewer();
       return;
     }
 
@@ -112,8 +86,11 @@ export function PublicArViewer({
     }
 
     try {
-      setMessage(null);
-      await viewer.activateAR();
+      void Promise.resolve(viewer.activateAR()).catch(() => {
+        setMessage(
+          "AR горим нээгдсэнгүй. Chrome эсвэл Safari хөтчөөр дахин оролдоорой.",
+        );
+      });
     } catch {
       setMessage(
         "AR горим нээгдсэнгүй. Chrome эсвэл Safari хөтчөөр дахин оролдоорой.",
@@ -133,15 +110,15 @@ export function PublicArViewer({
       />
       <div className="public-ar-control" id="ar-action">
         {message && <p role="status">{message}</p>}
-        <button
+        <QuickLookLink
           className="public-ar-button"
-          type="button"
+          href={iosSrc}
           onClick={openAr}
           aria-label={`${name} загварыг бодит орчинд AR-аар харах`}
         >
           <ScanLine size={19} />
           AR-аар шууд харах
-        </button>
+        </QuickLookLink>
       </div>
     </>
   );

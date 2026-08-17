@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { ArrowLeft, Box, Loader2, ScanLine, Smartphone, TriangleAlert } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
+import { QuickLookLink } from "@/components/ar/quick-look-link";
 import { ModelViewer, type ModelViewerElement } from "@/components/model/model-viewer";
 
 type ArAssets = {
@@ -14,23 +15,6 @@ type ArAssets = {
 function isIosDevice() {
   return /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-}
-
-function openQuickLook(url: string) {
-  const anchor = document.createElement("a");
-  const image = document.createElement("img");
-  anchor.rel = "ar";
-  anchor.href = url;
-  anchor.style.position = "fixed";
-  anchor.style.width = "1px";
-  anchor.style.height = "1px";
-  anchor.style.left = "-10px";
-  image.alt = "";
-  image.src = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
-  anchor.appendChild(image);
-  document.body.appendChild(anchor);
-  anchor.click();
-  window.setTimeout(() => anchor.remove(), 30_000);
 }
 
 function openSceneViewer(url: string) {
@@ -74,36 +58,43 @@ export function ArViewer({
     return () => { active = false; };
   }, [projectId]);
 
-  async function launchAr() {
+  function launchAr(event: MouseEvent<HTMLAnchorElement>) {
+    if (isIosDevice()) {
+      setMessage(null);
+      return;
+    }
+
+    event.preventDefault();
+    if (launching) return;
+
     setLaunching(true);
     setMessage(null);
-    try {
-      if (isIosDevice()) {
-        openQuickLook(assets.iosUsdz);
-        return;
-      }
-      if (/Android/i.test(navigator.userAgent)) {
+
+    void (async () => {
+      try {
+        if (/Android/i.test(navigator.userAgent)) {
+          if (element?.canActivateAR) {
+            await element.activateAR();
+          } else {
+            openSceneViewer(assets.androidGlb);
+          }
+          return;
+        }
         if (element?.canActivateAR) {
           await element.activateAR();
-        } else {
-          openSceneViewer(assets.androidGlb);
+          return;
         }
-        return;
+        setMessage("Open this page in Safari on iPhone or Chrome on an ARCore Android phone.");
+      } catch {
+        if (/Android/i.test(navigator.userAgent)) {
+          openSceneViewer(assets.androidGlb);
+        } else {
+          setMessage("AR could not start on this device.");
+        }
+      } finally {
+        setLaunching(false);
       }
-      if (element?.canActivateAR) {
-        await element.activateAR();
-        return;
-      }
-      setMessage("Open this page in Safari on iPhone or Chrome on an ARCore Android phone.");
-    } catch {
-      if (/Android/i.test(navigator.userAgent)) {
-        openSceneViewer(assets.androidGlb);
-      } else {
-        setMessage("AR could not start on this device.");
-      }
-    } finally {
-      setLaunching(false);
-    }
+    })();
   }
 
   return (
@@ -115,10 +106,16 @@ export function ArViewer({
       </section>
       <section className="ar-action-sheet">
         <div><span className="ar-device-icon"><Smartphone size={22} /></span><span><strong>View at true scale</strong><small>Place this model on a detected surface.</small></span></div>
-        <button className="button button-primary button-wide ar-launch" type="button" onClick={launchAr} disabled={launching}>
+        <QuickLookLink
+          className="button button-primary button-wide ar-launch"
+          href={assets.iosUsdz}
+          onClick={launchAr}
+          aria-busy={launching}
+          aria-disabled={launching}
+        >
           {launching ? <Loader2 className="spin" size={19} /> : <ScanLine size={19} />}
           {launching ? "Starting AR…" : "View in AR"}
-        </button>
+        </QuickLookLink>
         {message && <p className="ar-fallback"><TriangleAlert size={16} /> {message}</p>}
       </section>
     </main>

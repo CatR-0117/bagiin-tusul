@@ -695,6 +695,14 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .public-ar-button:hover { background: #f07b57; transform: translateY(-2px); }
 .public-ar-button:disabled { cursor: wait; opacity: .68; transform: none; }
 
+.quick-look-link-thumbnail {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .public-model-info {
   display: flex;
   min-width: 0;

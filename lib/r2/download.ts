@@ -7,7 +7,7 @@ import type { Project, ProjectAssetUrls } from "@/types/project";
 export function localAssetUrl(key: string) {
   if (key === "demo/model.glb") return "/demo/model.glb";
   if (key === "demo/sofa.glb") return "/models/sofa.glb";
-  if (key === "demo/sofa.usdz") return "/models/sofa.usdz";
+  if (key === "demo/sofa.usdz") return "/ar-assets/sofa/model.usdz?v=hq-1024";
   if (key === "demo/source.avif") return "/ar-coffee-table.avif";
   return `/api/mock-object?key=${encodeURIComponent(key)}`;
 }
