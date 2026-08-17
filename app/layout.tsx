@@ -22,13 +22,13 @@ const metadata: Metadata = {
     title: "Object Room — Нээлттэй 3D үзүүлэн",
     description: "Таван 3D загварыг бүртгэлгүйгээр бүх өнцгөөс үзээрэй.",
     type: "website",
-    images: [{ url: "/og-object-room.png", width: 1536, height: 1024, alt: "Object Room нээлттэй 3D үзүүлэн" }],
+    images: [{ url: "/og-object-room-v2.png", width: 1200, height: 630, alt: "Object Room нээлттэй 3D болон AR үзүүлэн" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Object Room — Нээлттэй 3D үзүүлэн",
     description: "Таван 3D загварыг бүртгэлгүйгээр бүх өнцгөөс үзээрэй.",
-    images: ["/og-object-room.png"],
+    images: ["/og-object-room-v2.png"],
   },
 };
 

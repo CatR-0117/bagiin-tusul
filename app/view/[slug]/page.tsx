@@ -29,9 +29,28 @@ export async function generateMetadata({ params }: ViewModelPageProps): Promise<
   const model = getShowcaseModel((await params).slug);
   if (!model) return {};
 
+  const origin = await getRequestOrigin();
+  const url = `${origin}/view/${model.slug}`;
+  const description = `${model.name} 3D загварыг бүртгэлгүйгээр 360° үзэж, AR-аар бодит орчиндоо байрлуулаарай.`;
+
   return {
     title: model.name,
-    description: `${model.name} 3D загварыг бүртгэлгүйгээр 360° үзэж, QR холбоосоор утсан дээрээ нээнэ.`,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title: `${model.name} · Object Room`,
+      description,
+      type: "website",
+      url,
+      siteName: "Object Room",
+      images: [],
+    },
+    twitter: {
+      card: "summary",
+      title: `${model.name} · Object Room`,
+      description,
+      images: [],
+    },
   };
 }
 

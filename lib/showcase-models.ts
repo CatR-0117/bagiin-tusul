@@ -22,7 +22,7 @@ export const showcaseModels: ShowcaseModel[] = [
     description:
       "Орчин үеийн хэлбэр, зөөлөн материалын деталийг бүх өнцгөөс нь эргүүлж үзээрэй.",
     src: "/models/sofa.glb",
-    iosSrc: "/ar-assets/sofa/model.usdz?v=hq-1024",
+    iosSrc: "/models/sofa.usdz?v=hq-1024",
     fileSize: "208 KB",
     surface: "#d9d3c8",
     accent: "#e45d36",
@@ -36,7 +36,7 @@ export const showcaseModels: ShowcaseModel[] = [
     description:
       "Модны ширхэг, гар хийцийн гадаргууг ойртуулж харах бодит мэт 3D загвар.",
     src: "/models/wooden-bowl-spoon.glb",
-    iosSrc: "/ar-assets/wooden-bowl-spoon/model.usdz?v=hq-1024",
+    iosSrc: "/models/wooden-bowl-spoon.usdz?v=hq-1024",
     fileSize: "182 KB",
     surface: "#d9b881",
     accent: "#30251b",
@@ -50,7 +50,7 @@ export const showcaseModels: ShowcaseModel[] = [
     description:
       "Цүнхний хэлбэр, оёдол болон материалын деталийг хулгана эсвэл хуруугаараа шалгана.",
     src: "/models/travel-bag.glb",
-    iosSrc: "/ar-assets/travel-bag/model.usdz?v=hq-1024",
+    iosSrc: "/models/travel-bag.usdz?v=hq-1024",
     fileSize: "789 KB",
     surface: "#bfc4b9",
     accent: "#204a3a",
@@ -64,7 +64,7 @@ export const showcaseModels: ShowcaseModel[] = [
     description:
       "Өнгө, тоо, металл хүрээний бүтцийг 360° эргэлтээр дэлгэрэнгүй үзэх загвар.",
     src: "/models/dartboard.glb",
-    iosSrc: "/ar-assets/dartboard/model.usdz?v=hq-1024",
+    iosSrc: "/models/dartboard.usdz?v=hq-1024",
     fileSize: "302 KB",
     surface: "#c9bfb1",
     accent: "#c5322f",
@@ -78,7 +78,7 @@ export const showcaseModels: ShowcaseModel[] = [
     description:
       "Энгийн бүтээгдэхүүний танилцуулгыг интерактив 3D хэлбэрээр хэрхэн үзүүлэх жишээ.",
     src: "/models/tissue-box.glb",
-    iosSrc: "/ar-assets/tissue-box/model.usdz?v=hq-1024",
+    iosSrc: "/models/tissue-box.usdz?v=hq-1024",
     fileSize: "291 KB",
     surface: "#d5c9c5",
     accent: "#6e2c4c",

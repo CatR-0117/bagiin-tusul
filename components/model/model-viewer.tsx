@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Loader2 } from "lucide-react";
+import { Box, Loader2, RefreshCw } from "lucide-react";
 import { type FC, useEffect, useRef, useState } from "react";
 import { loadModelViewer } from "@/lib/cdn";
 
@@ -40,6 +40,7 @@ export function ModelViewer({
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -47,7 +48,7 @@ export function ModelViewer({
       .then(() => { if (active) setDefined(true); })
       .catch(() => { if (active) setFailed(true); });
     return () => { active = false; };
-  }, []);
+  }, [attempt]);
 
   useEffect(() => {
     const node = ref.current;
@@ -92,7 +93,36 @@ export function ModelViewer({
     };
   }, [defined, onElement, onProgress, onReady]);
 
-  if (failed) return <div className={`model-viewer-error ${className}`}><Box size={32} /><span>3D загвар ачаалагдсангүй.</span></div>;
+  useEffect(() => {
+    if (!defined || loaded || failed) return;
+    if (loading !== "eager" && progress === 0) return;
+
+    const timer = window.setTimeout(() => setFailed(true), 20_000);
+    return () => window.clearTimeout(timer);
+  }, [attempt, defined, failed, loaded, loading, progress, src]);
+
+  function retry() {
+    if (!customElements.get("model-viewer")) {
+      document.querySelector('script[data-lib="model-viewer"]')?.remove();
+      setDefined(false);
+    }
+    setFailed(false);
+    setLoaded(false);
+    setProgress(0);
+    setAttempt((value) => value + 1);
+  }
+
+  if (failed) {
+    return (
+      <div className={`model-viewer-error ${className}`}>
+        <Box size={32} />
+        <span>3D загвар ачаалагдсангүй.</span>
+        <button className="button button-secondary" type="button" onClick={retry}>
+          <RefreshCw size={15} /> Дахин оролдох
+        </button>
+      </div>
+    );
+  }
 
   const props: Record<string, unknown> = {
     ref: (node: HTMLElement | null) => { ref.current = node as ModelViewerElement | null; },
@@ -120,7 +150,7 @@ export function ModelViewer({
 
   return (
     <div className={`model-viewer-container ${loaded ? "is-loaded" : ""}`}>
-      {defined && <ModelViewerTag {...props} />}
+      {defined && <ModelViewerTag key={`${src}-${attempt}`} {...props} />}
       {!loaded && <div className="model-viewer-loader"><Loader2 className="spin" size={24} /><span>{defined ? `3D загвар татаж байна · ${Math.round(progress * 100)}%` : "3D үзэгчийг нээж байна"}</span></div>}
     </div>
   );
