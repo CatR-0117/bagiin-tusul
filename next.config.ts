@@ -13,7 +13,6 @@ const nextConfig: NextConfig = {
         headers: [
           { key: "Content-Type", value: "model/vnd.usdz+zip" },
           { key: "Content-Disposition", value: "inline" },
-          { key: "Accept-Ranges", value: "bytes" },
           { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
           { key: "X-Content-Type-Options", value: "nosniff" },
         ],
@@ -22,7 +21,6 @@ const nextConfig: NextConfig = {
         source: "/models/:slug.glb",
         headers: [
           { key: "Content-Type", value: "model/gltf-binary" },
-          { key: "Accept-Ranges", value: "bytes" },
           { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
           { key: "X-Content-Type-Options", value: "nosniff" },
         ],
@@ -32,7 +30,6 @@ const nextConfig: NextConfig = {
         headers: [
           { key: "Content-Type", value: "model/vnd.usdz+zip" },
           { key: "Content-Disposition", value: "inline" },
-          { key: "Accept-Ranges", value: "bytes" },
           { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
           { key: "X-Content-Type-Options", value: "nosniff" },
         ],
