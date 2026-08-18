@@ -1,4 +1,6 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { isR2Configured } from "@/lib/config";
+import { putMockObject } from "@/lib/mock-storage";
 import { getR2BucketName, getR2Client } from "@/lib/r2/client";
 
 export async function uploadBuffer(
@@ -6,6 +8,12 @@ export async function uploadBuffer(
   body: Uint8Array,
   contentType: string,
 ) {
+  if (!isR2Configured()) {
+    const copy = body.slice();
+    putMockObject(key, copy.buffer as ArrayBuffer, contentType);
+    return { key, size: copy.byteLength };
+  }
+
   await getR2Client().send(
     new PutObjectCommand({
       Bucket: getR2BucketName(),

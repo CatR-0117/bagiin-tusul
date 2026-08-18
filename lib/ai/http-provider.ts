@@ -54,6 +54,9 @@ export class HttpImageTo3DProvider implements ImageTo3DProvider {
   }
 
   async generate(input: Generate3DInput): Promise<GenerationJob> {
+    if (!input.imageUrl) {
+      throw new Error("HTTP AI provider-д зураг татах URL шаардлагатай.");
+    }
     const parsed = jobSchema.parse(
       await this.request("/generate", {
         method: "POST",
@@ -82,4 +85,3 @@ export class HttpImageTo3DProvider implements ImageTo3DProvider {
     };
   }
 }
-

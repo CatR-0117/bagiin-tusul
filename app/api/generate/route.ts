@@ -1,5 +1,7 @@
 import { getImageTo3DProvider } from "@/lib/ai/generate";
 import { getCurrentUser } from "@/lib/auth";
+import { isR2Configured } from "@/lib/config";
+import { getMockObject } from "@/lib/mock-storage";
 import { getProjectForUser, updateProject } from "@/lib/projects";
 import {
   rateLimit,
@@ -30,16 +32,16 @@ export async function POST(request: Request) {
   }
 
   const limits = rateLimitConfig();
-  const hourly = await rateLimit(request, limits.hour);
+  const hourly = await rateLimit(request, limits.hour, user.id);
   if (!hourly.ok) {
     return Response.json(
       { error: "Нэг цагийн 3D үүсгэлтийн хязгаарт хүрлээ." },
       { status: 429, headers: { "Retry-After": String(hourly.retryAfter) } },
     );
   }
-  const daily = await rateLimit(request, limits.day);
+  const daily = await rateLimit(request, limits.day, user.id);
   if (!daily.ok) {
-    await refundRateLimit(request, limits.hour);
+    await refundRateLimit(request, limits.hour, user.id);
     return Response.json(
       { error: "Өнөөдрийн 3D үүсгэлтийн хязгаарт хүрлээ." },
       { status: 429, headers: { "Retry-After": String(daily.retryAfter) } },
@@ -48,10 +50,20 @@ export async function POST(request: Request) {
 
   let generationSubmitted = false;
   try {
-    const sourceUrl = await getObjectUrl(project.source_image_key);
-    if (!sourceUrl) throw new Error("Source image is unavailable.");
-    const imageUrl = new URL(sourceUrl, request.url).toString();
-    const job = await getImageTo3DProvider().generate({ imageUrl });
+    let input;
+    if (!isR2Configured()) {
+      const source = getMockObject(project.source_image_key);
+      if (!source) throw new Error("Source image is unavailable.");
+      input = {
+        imageData: source.body,
+        contentType: source.contentType,
+      };
+    } else {
+      const sourceUrl = await getObjectUrl(project.source_image_key);
+      if (!sourceUrl) throw new Error("Source image is unavailable.");
+      input = { imageUrl: new URL(sourceUrl, request.url).toString() };
+    }
+    const job = await getImageTo3DProvider().generate(input);
     generationSubmitted = true;
     await updateProject(user.id, project.id, {
       ai_job_id: job.jobId,
@@ -62,8 +74,8 @@ export async function POST(request: Request) {
   } catch (error) {
     if (!generationSubmitted) {
       await Promise.all([
-        refundRateLimit(request, limits.hour),
-        refundRateLimit(request, limits.day),
+        refundRateLimit(request, limits.hour, user.id),
+        refundRateLimit(request, limits.day, user.id),
       ]);
     }
     const message = error instanceof Error ? error.message : "Generation could not be started.";

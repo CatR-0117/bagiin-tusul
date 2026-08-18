@@ -1,5 +1,7 @@
 export type Generate3DInput = {
-  imageUrl: string;
+  imageUrl?: string;
+  imageData?: Uint8Array;
+  contentType?: string;
 };
 
 export type GenerationJob = {
@@ -8,7 +10,7 @@ export type GenerationJob = {
 };
 
 export type GenerationResult = {
-  glbUrl: string;
+  glbUrl?: string;
   usdzUrl?: string;
   thumbnailUrl?: string;
 };
@@ -28,4 +30,6 @@ export type GenerationStatus = GenerationJob & {
 export interface ImageTo3DProvider {
   generate(input: Generate3DInput): Promise<GenerationJob>;
   getStatus(jobId: string): Promise<GenerationStatus>;
+  startUsdzConversion?(sourceJobId: string): Promise<GenerationJob>;
+  getUsdzStatus?(jobId: string): Promise<GenerationStatus>;
 }

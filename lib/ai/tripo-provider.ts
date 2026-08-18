@@ -1,5 +1,6 @@
 import {
   ModelVersion,
+  OutputFormat,
   TaskStatus,
   TripoAPIError,
   TripoClient,
@@ -80,9 +81,8 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Tripo хүсэлт амжилтгүй боллоо.";
 }
 
-function sourceImageType(response: Response): SupportedImageType {
-  const contentType = response.headers
-    .get("content-type")
+function supportedImageType(value: string | null | undefined): SupportedImageType {
+  const contentType = value
     ?.split(";", 1)[0]
     .trim()
     .toLowerCase();
@@ -126,13 +126,23 @@ export class TripoImageTo3DProvider implements ImageTo3DProvider {
 
   async generate(input: Generate3DInput): Promise<GenerationJob> {
     try {
-      const response = await fetch(input.imageUrl, { cache: "no-store" });
-      if (!response.ok) {
-        throw new Error(`Эх зургийг татаж чадсангүй (${response.status}).`);
+      let type: SupportedImageType;
+      let blob: Blob;
+      if (input.imageData) {
+        type = supportedImageType(input.contentType);
+        const bytes = Uint8Array.from(input.imageData);
+        blob = new Blob([bytes.buffer], { type });
+      } else if (input.imageUrl) {
+        const response = await fetch(input.imageUrl, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`Эх зургийг татаж чадсангүй (${response.status}).`);
+        }
+        type = supportedImageType(response.headers.get("content-type"));
+        blob = await response.blob();
+      } else {
+        throw new Error("Эх зураг олдсонгүй.");
       }
 
-      const type = sourceImageType(response);
-      const blob = await response.blob();
       if (blob.size === 0) throw new Error("Эх зураг хоосон байна.");
       if (blob.size > MAX_SOURCE_IMAGE_BYTES) {
         throw new Error("Эх зураг 10 MB-аас бага байх ёстой.");
@@ -209,6 +219,67 @@ export class TripoImageTo3DProvider implements ImageTo3DProvider {
         stage: "complete",
         progress: 100,
         result: glbUrl ? { glbUrl, thumbnailUrl } : undefined,
+      };
+    } catch (error) {
+      throw new Error(errorMessage(error), { cause: error });
+    }
+  }
+
+  async startUsdzConversion(sourceJobId: string): Promise<GenerationJob> {
+    try {
+      const jobId = await this.client.convertModel({
+        input: sourceJobId,
+        format: OutputFormat.USDZ,
+        texture_size: 1024,
+        pivot_to_center_bottom: true,
+      });
+      if (!jobId) throw new Error("Tripo USDZ даалгаврын ID буцаасангүй.");
+      return { jobId, status: "queued" };
+    } catch (error) {
+      throw new Error(errorMessage(error), { cause: error });
+    }
+  }
+
+  async getUsdzStatus(jobId: string): Promise<GenerationStatus> {
+    try {
+      const task = await this.client.getTask(jobId);
+      const progress = Math.min(100, Math.max(0, task.progress ?? 0));
+
+      if (task.status === TaskStatus.QUEUED) {
+        return { jobId, status: "queued", stage: "preparing", progress };
+      }
+      if (task.status === TaskStatus.RUNNING) {
+        return {
+          jobId,
+          status: "processing",
+          stage: taskStage(progress),
+          progress,
+        };
+      }
+      if (task.status !== TaskStatus.SUCCESS) {
+        return {
+          jobId,
+          status: "failed",
+          error: taskFailure(task),
+          progress,
+        };
+      }
+
+      const output = task.output ?? {};
+      const usdzUrl = firstUrl(
+        output.model_url,
+        output.model,
+        output.pbr_model,
+        output.base_model,
+        ...(Array.isArray(output.model_urls) ? output.model_urls : []),
+      );
+
+      return {
+        jobId,
+        status: "completed",
+        stage: "complete",
+        progress: 100,
+        result: usdzUrl ? { usdzUrl } : undefined,
       };
     } catch (error) {
       throw new Error(errorMessage(error), { cause: error });

@@ -8,12 +8,19 @@ export async function GET(request: Request) {
   const key = new URL(request.url).searchParams.get("key") ?? "";
   if (key.includes("..")) return new Response(null, { status: 400 });
   const segments = key.split("/");
-  if (segments.length < 4) return new Response(null, { status: 404 });
-
-  const [, keyUserId, projectId] = segments;
   const user = await getCurrentUser();
+  const kind = segments[0];
+  const keyUserId = kind === "uploads" ? segments[1] : null;
+  const projectId = kind === "uploads" ? segments[2] : kind === "models" ? segments[1] : null;
+  if (!projectId || (kind === "uploads" && segments.length < 4) || (kind === "models" && segments.length < 3)) {
+    return new Response(null, { status: 404 });
+  }
+
   const project = await getProjectForAr(user?.id ?? null, projectId);
-  if (!project || (project.user_id !== keyUserId && !project.is_public)) {
+  if (
+    !project ||
+    (kind === "uploads" && project.user_id !== keyUserId && !project.is_public)
+  ) {
     return new Response(null, { status: user ? 403 : 401 });
   }
 

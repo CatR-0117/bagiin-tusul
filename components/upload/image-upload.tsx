@@ -153,10 +153,10 @@ export function ImageUpload() {
           <div className="source-settings">
             <span className="eyebrow">Эх зураг бэлэн</span>
             <h2>Загвартаа нэр өгнө үү</h2>
-            <p>Энэ нэр орон зайн санд харагдана.</p>
+            <p>Энэ нэр таны загварын сан болон AR хуудсанд харагдана.</p>
             <label htmlFor="project-title">Төслийн нэр</label>
             <input id="project-title" value={title} maxLength={100} onChange={(event) => setTitle(event.target.value)} />
-            <dl><div><dt>Файл</dt><dd>{file.name}</dd></div><div><dt>Хэмжээ</dt><dd>{(file.size / 1024 / 1024).toFixed(1)} MB</dd></div><div><dt>Гаралт</dt><dd>GLB + AR холбоос</dd></div></dl>
+            <dl><div><dt>Файл</dt><dd>{file.name}</dd></div><div><dt>Хэмжээ</dt><dd>{(file.size / 1024 / 1024).toFixed(1)} MB</dd></div><div><dt>Гаралт</dt><dd>GLB + USDZ + AR</dd></div></dl>
             <button className="button button-primary button-wide" type="button" onClick={generate} disabled={!title.trim()}><Sparkles size={17} /> 3D загвар үүсгэх</button>
             <button className="replace-file" type="button" onClick={() => inputRef.current?.click()}><RotateCcw size={15} /> Өөр зураг сонгох</button>
             <input ref={inputRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => choose(event.target.files?.[0])} />

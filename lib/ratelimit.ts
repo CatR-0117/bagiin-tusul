@@ -80,8 +80,9 @@ async function writeBucket(key: string, bucket: Bucket): Promise<void> {
 export async function rateLimit(
   request: Request,
   { windowSeconds = 3600, limit = 5 } = {},
+  subject?: string,
 ): Promise<RateLimitResult> {
-  const key = `${clientKey(request)}:${windowSeconds}:${limit}`;
+  const key = `${subject ?? "visitor"}:${clientKey(request)}:${windowSeconds}:${limit}`;
   const now = Date.now();
   const existing = await readBucket(key);
 
@@ -111,8 +112,9 @@ export async function rateLimit(
 export async function refundRateLimit(
   request: Request,
   { windowSeconds = 3600, limit = 5 } = {},
+  subject?: string,
 ): Promise<void> {
-  const key = `${clientKey(request)}:${windowSeconds}:${limit}`;
+  const key = `${subject ?? "visitor"}:${clientKey(request)}:${windowSeconds}:${limit}`;
   const bucket = await readBucket(key);
   if (!bucket || bucket.count === 0) return;
   await writeBucket(key, { ...bucket, count: bucket.count - 1 });
@@ -120,10 +122,10 @@ export async function refundRateLimit(
 
 /** Орчны хувьсагчаас тохиргоог унших. */
 export function rateLimitConfig() {
-  const perHour = Number(process.env.MORPH_GENERATIONS_PER_HOUR ?? 5);
-  const perDay = Number(process.env.MORPH_GENERATIONS_PER_DAY ?? 20);
+  const perHour = Number(process.env.MORPH_GENERATIONS_PER_HOUR ?? 1);
+  const perDay = Number(process.env.MORPH_GENERATIONS_PER_DAY ?? 2);
   return {
-    hour: { windowSeconds: 3600, limit: Number.isFinite(perHour) ? perHour : 5 },
-    day: { windowSeconds: 86400, limit: Number.isFinite(perDay) ? perDay : 20 },
+    hour: { windowSeconds: 3600, limit: Number.isFinite(perHour) ? perHour : 1 },
+    day: { windowSeconds: 86400, limit: Number.isFinite(perDay) ? perDay : 2 },
   };
 }

@@ -1,4 +1,4 @@
-import { getGenerationStatus } from "@/lib/ai/status";
+import { getImageTo3DProvider } from "@/lib/ai/generate";
 import { getCurrentUser } from "@/lib/auth";
 import { isMockAIEnabled } from "@/lib/config";
 import { getProjectForUser, updateProject } from "@/lib/projects";
@@ -19,12 +19,8 @@ export async function GET(
   if (project.status === "ready" && project.glb_key) {
     return Response.json({ status: "completed", stage: "complete", project });
   }
-  if (project.status === "optimizing" || project.status === "converting") {
-    return Response.json({
-      status: "processing",
-      stage: project.status,
-      project,
-    });
+  if (project.status === "optimizing") {
+    return Response.json({ status: "processing", stage: "optimizing", project });
   }
   if (project.status === "failed") {
     return Response.json({
@@ -38,7 +34,17 @@ export async function GET(
   }
 
   try {
-    const status = await getGenerationStatus(project.ai_job_id);
+    const provider = getImageTo3DProvider();
+    const isUsdzConversion = project.status === "converting";
+
+    if (isUsdzConversion && !provider.getUsdzStatus) {
+      return Response.json({ status: "processing", stage: "converting", project });
+    }
+
+    const status = isUsdzConversion
+      ? await provider.getUsdzStatus!(project.ai_job_id)
+      : await provider.getStatus(project.ai_job_id);
+
     if (status.status === "failed") {
       const failed = await updateProject(user.id, id, {
         status: "failed",
@@ -46,13 +52,44 @@ export async function GET(
       });
       return Response.json({ ...status, project: failed });
     }
-    if (status.status !== "completed") return Response.json(status);
-    if (!status.result?.glbUrl) throw new Error("The AI provider did not return a GLB file.");
+    if (status.status !== "completed") {
+      return Response.json({
+        ...status,
+        stage: isUsdzConversion ? "converting" : status.stage,
+      });
+    }
 
-    let originalGlbKey: string;
-    let originalGlbSize: number;
+    const origin = new URL(request.url).origin;
+
+    if (isUsdzConversion) {
+      if (!status.result?.usdzUrl) {
+        throw new Error("Tripo iPhone AR-д зориулсан USDZ файл буцаасангүй.");
+      }
+      const iosKey = `models/${id}/ios-ar.usdz`;
+      const ios = await uploadRemoteFile(
+        iosKey,
+        status.result.usdzUrl,
+        "model/vnd.usdz+zip",
+        origin,
+      );
+      const ready = await updateProject(user.id, id, {
+        ios_usdz_key: iosKey,
+        ios_usdz_size: ios.size,
+        usdz_key: iosKey,
+        ios_optimization_status: ios.size <= 20 * 1024 * 1024 ? "excellent" : "good",
+        status: "ready",
+        processing_completed_at: new Date().toISOString(),
+        processing_error: null,
+        error_message: null,
+      });
+      return Response.json({ status: "completed", stage: "complete", project: ready });
+    }
+
+    if (!status.result?.glbUrl) {
+      throw new Error("The AI provider did not return a GLB file.");
+    }
+
     let thumbnailKey: string | null = project.source_image_key;
-
     if (isMockAIEnabled()) {
       const ready = await updateProject(user.id, id, {
         original_glb_key: "demo/sofa.glb",
@@ -77,38 +114,73 @@ export async function GET(
         error_message: null,
       });
       return Response.json({ ...status, project: ready });
-    } else {
-      const origin = new URL(request.url).origin;
-      originalGlbKey = `models/${id}/original.glb`;
-      const original = await uploadRemoteFile(
-        originalGlbKey,
-        status.result.glbUrl,
-        "model/gltf-binary",
-        origin,
-      );
-      originalGlbSize = original.size;
-      if (status.result.thumbnailUrl) {
-        thumbnailKey = `models/${id}/thumbnail.webp`;
-        await uploadRemoteFile(
-          thumbnailKey,
-          status.result.thumbnailUrl,
-          "image/webp",
-          origin,
-        );
-      }
     }
 
-    const queued = await updateProject(user.id, id, {
+    const originalGlbKey = `models/${id}/original.glb`;
+    const original = await uploadRemoteFile(
+      originalGlbKey,
+      status.result.glbUrl,
+      "model/gltf-binary",
+      origin,
+    );
+    if (status.result.thumbnailUrl) {
+      thumbnailKey = `models/${id}/thumbnail.webp`;
+      await uploadRemoteFile(
+        thumbnailKey,
+        status.result.thumbnailUrl,
+        "image/webp",
+        origin,
+      );
+    }
+
+    const commonAssets = {
       original_glb_key: originalGlbKey,
-      original_glb_size: originalGlbSize,
+      original_glb_size: original.size,
+      web_glb_key: originalGlbKey,
+      web_glb_size: original.size,
+      android_glb_key: originalGlbKey,
+      android_glb_size: original.size,
+      glb_key: originalGlbKey,
       thumbnail_key: thumbnailKey,
-      status: "optimizing",
+      web_optimization_status: "excellent" as const,
+      android_optimization_status: "excellent" as const,
+      optimization_warnings: [],
+      processing_started_at: new Date().toISOString(),
       processing_error: null,
-      processing_worker_id: null,
-      processing_claimed_at: null,
       error_message: null,
+    };
+
+    if (status.result.usdzUrl) {
+      const iosKey = `models/${id}/ios-ar.usdz`;
+      const ios = await uploadRemoteFile(
+        iosKey,
+        status.result.usdzUrl,
+        "model/vnd.usdz+zip",
+        origin,
+      );
+      const ready = await updateProject(user.id, id, {
+        ...commonAssets,
+        ios_usdz_key: iosKey,
+        ios_usdz_size: ios.size,
+        usdz_key: iosKey,
+        ios_optimization_status: ios.size <= 20 * 1024 * 1024 ? "excellent" : "good",
+        status: "ready",
+        processing_completed_at: new Date().toISOString(),
+      });
+      return Response.json({ status: "completed", stage: "complete", project: ready });
+    }
+
+    if (!provider.startUsdzConversion) {
+      throw new Error("AI provider USDZ conversion дэмжихгүй байна.");
+    }
+
+    const conversion = await provider.startUsdzConversion(project.ai_job_id);
+    const converting = await updateProject(user.id, id, {
+      ...commonAssets,
+      ai_job_id: conversion.jobId,
+      status: "converting",
     });
-    return Response.json({ status: "processing", stage: "optimizing", project: queued });
+    return Response.json({ status: "processing", stage: "converting", project: converting });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not finalize generated assets.";
     await updateProject(user.id, id, {
