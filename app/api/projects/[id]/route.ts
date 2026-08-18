@@ -22,13 +22,14 @@ export async function DELETE(
     project.usdz_key,
     project.thumbnail_key === project.source_image_key ? null : project.thumbnail_key,
   ];
-  const cleanup = await Promise.allSettled(
-    [...new Set(keys)].map((key) => deleteObject(key)),
-  );
+  const deleted = await deleteProjectRecord(user.id, id);
+  if (!deleted) {
+    return Response.json({ error: "Загварыг устгаж чадсангүй." }, { status: 409 });
+  }
+
+  const cleanup = await Promise.allSettled([...new Set(keys)].map((key) => deleteObject(key)));
   cleanup.forEach((result) => {
     if (result.status === "rejected") console.error("[project:delete-object]", result.reason);
   });
-
-  await deleteProjectRecord(user.id, id);
   return Response.json({ ok: true });
 }
