@@ -7,6 +7,7 @@ export type ShowcaseModel = {
   description: string;
   src: string;
   iosSrc: string;
+  poster?: string;
   fileSize: string;
   surface: string;
   accent: string;
@@ -82,6 +83,21 @@ export const showcaseModels: ShowcaseModel[] = [
     fileSize: "291 KB",
     surface: "#d5c9c5",
     accent: "#6e2c4c",
+  },
+  {
+    slug: "arcade-cabinet",
+    number: "06",
+    name: "Аркад тоглоомын машин",
+    englishName: "Arcade cabinet",
+    category: "Тоглоом",
+    description:
+      "Нэг бүтээгдэхүүний зургаас Tripo3D AI-аар үүсгэсэн, web болон AR орчинд байрлуулахад бэлэн PBR загвар.",
+    src: "/models/arcade-cabinet.glb",
+    iosSrc: "/models/arcade-cabinet.usdz",
+    poster: "/models/arcade-cabinet-preview.webp",
+    fileSize: "1.29 MB",
+    surface: "#d8c668",
+    accent: "#d83f27",
   },
 ];
 

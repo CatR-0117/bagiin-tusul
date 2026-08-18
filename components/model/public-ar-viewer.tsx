@@ -16,10 +16,12 @@ const noopSubscribe = () => () => {};
 export function PublicArViewer({
   src,
   iosSrc,
+  poster,
   name,
 }: {
   src: string;
   iosSrc: string;
+  poster?: string;
   name: string;
 }) {
   const [viewer, setViewer] = useState<ModelViewerElement | null>(null);
@@ -111,6 +113,7 @@ export function PublicArViewer({
       <ModelViewer
         src={src}
         iosSrc={iosSrc}
+        poster={poster}
         ar
         autoRotate
         className="public-detail-viewer"

@@ -31,6 +31,7 @@ export async function generateMetadata({ params }: ViewModelPageProps): Promise<
 
   const origin = await getRequestOrigin();
   const url = `${origin}/view/${model.slug}`;
+  const image = model.poster ? new URL(model.poster, origin).toString() : undefined;
   const description = `${model.name} 3D загварыг бүртгэлгүйгээр 360° үзэж, AR-аар бодит орчиндоо байрлуулаарай.`;
 
   return {
@@ -43,13 +44,13 @@ export async function generateMetadata({ params }: ViewModelPageProps): Promise<
       type: "website",
       url,
       siteName: "Object Room",
-      images: [],
+      images: image ? [{ url: image, alt: `${model.name} 3D загвар` }] : [],
     },
     twitter: {
       card: "summary",
       title: `${model.name} · Object Room`,
       description,
-      images: [],
+      images: image ? [image] : [],
     },
   };
 }
@@ -84,6 +85,7 @@ export default async function ViewModelPage({ params }: ViewModelPageProps) {
           <PublicArViewer
             src={model.src}
             iosSrc={model.iosSrc}
+            poster={model.poster}
             name={model.name}
           />
           <div className="public-stage-help">

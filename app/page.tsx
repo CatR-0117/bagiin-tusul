@@ -12,7 +12,7 @@ import { ModelViewer } from "@/components/model/model-viewer";
 import { showcaseModels } from "@/lib/showcase-models";
 
 export default function HomePage() {
-  const featured = showcaseModels[0];
+  const featured = showcaseModels.at(-1)!;
 
   return (
     <main className="showcase-site">
@@ -32,7 +32,7 @@ export default function HomePage() {
           <span className="showcase-kicker"><Box size={14} /> Нээлттэй 3D үзүүлэн</span>
           <h1>Загварыг<br /><em>ойроос хар.</em></h1>
           <p>
-            Таван бодит 3D загварыг эргүүлж, ойртуулж үзээрэй. Нэвтрэх,
+            Зургаан бодит 3D загварыг эргүүлж, ойртуулж үзээрэй. Нэвтрэх,
             бүртгүүлэх шаардлагагүй — QR-ийг уншуулаад утсан дээрээ шууд нээнэ.
           </p>
           <div className="showcase-hero-actions">
@@ -42,7 +42,7 @@ export default function HomePage() {
             <span><MousePointer2 size={16} /> Чирэх · Эргүүлэх · Ойртуулах</span>
           </div>
           <dl className="showcase-stats">
-            <div><dt>Загвар</dt><dd>05</dd></div>
+            <div><dt>Загвар</dt><dd>{showcaseModels.length.toString().padStart(2, "0")}</dd></div>
             <div><dt>Формат</dt><dd>GLB</dd></div>
             <div><dt>Хандалт</dt><dd>OPEN</dd></div>
           </dl>
@@ -55,6 +55,7 @@ export default function HomePage() {
           </div>
           <ModelViewer
             src={featured.src}
+            poster={featured.poster}
             ar={false}
             autoRotate
             className="showcase-hero-viewer"
@@ -75,7 +76,7 @@ export default function HomePage() {
         <header className="showcase-section-heading">
           <div>
             <span>01 — НИЙТИЙН САН</span>
-            <h2>Таван загвар.<br />Хязгааргүй өнцөг.</h2>
+            <h2>Зургаан загвар.<br />Хязгааргүй өнцөг.</h2>
           </div>
           <p>
             Загвар дээр дарж тусдаа үзэх хуудас руу орно. Тэндээс QR кодыг
@@ -98,6 +99,7 @@ export default function HomePage() {
                 <span className="showcase-card-format">GLB · {model.fileSize}</span>
                 <ModelViewer
                   src={model.src}
+                  poster={model.poster}
                   ar={false}
                   autoRotate
                   loading="lazy"
