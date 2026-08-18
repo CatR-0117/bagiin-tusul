@@ -129,3 +129,15 @@ export function rateLimitConfig() {
     day: { windowSeconds: 86400, limit: Number.isFinite(perDay) ? perDay : 2 },
   };
 }
+
+/** Exact, case-insensitive email allowlist for trusted account generation. */
+export function isGenerationRateLimitExempt(email: string | null | undefined) {
+  const normalizedEmail = email?.trim().toLowerCase();
+  if (!normalizedEmail) return false;
+
+  return (process.env.MORPH_UNLIMITED_EMAILS ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(normalizedEmail);
+}

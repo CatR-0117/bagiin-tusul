@@ -4,6 +4,7 @@ import { isR2Configured } from "@/lib/config";
 import { getMockObject } from "@/lib/mock-storage";
 import { getProjectForUser, updateProject } from "@/lib/projects";
 import {
+  isGenerationRateLimitExempt,
   rateLimit,
   rateLimitConfig,
   refundRateLimit,
@@ -32,20 +33,23 @@ export async function POST(request: Request) {
   }
 
   const limits = rateLimitConfig();
-  const hourly = await rateLimit(request, limits.hour, user.id);
-  if (!hourly.ok) {
-    return Response.json(
-      { error: "Нэг цагийн 3D үүсгэлтийн хязгаарт хүрлээ." },
-      { status: 429, headers: { "Retry-After": String(hourly.retryAfter) } },
-    );
-  }
-  const daily = await rateLimit(request, limits.day, user.id);
-  if (!daily.ok) {
-    await refundRateLimit(request, limits.hour, user.id);
-    return Response.json(
-      { error: "Өнөөдрийн 3D үүсгэлтийн хязгаарт хүрлээ." },
-      { status: 429, headers: { "Retry-After": String(daily.retryAfter) } },
-    );
+  const isLimitExempt = isGenerationRateLimitExempt(user.email);
+  if (!isLimitExempt) {
+    const hourly = await rateLimit(request, limits.hour, user.id);
+    if (!hourly.ok) {
+      return Response.json(
+        { error: "Нэг цагийн 3D үүсгэлтийн хязгаарт хүрлээ." },
+        { status: 429, headers: { "Retry-After": String(hourly.retryAfter) } },
+      );
+    }
+    const daily = await rateLimit(request, limits.day, user.id);
+    if (!daily.ok) {
+      await refundRateLimit(request, limits.hour, user.id);
+      return Response.json(
+        { error: "Өнөөдрийн 3D үүсгэлтийн хязгаарт хүрлээ." },
+        { status: 429, headers: { "Retry-After": String(daily.retryAfter) } },
+      );
+    }
   }
 
   let generationSubmitted = false;
@@ -72,7 +76,7 @@ export async function POST(request: Request) {
     });
     return Response.json({ job });
   } catch (error) {
-    if (!generationSubmitted) {
+    if (!generationSubmitted && !isLimitExempt) {
       await Promise.all([
         refundRateLimit(request, limits.hour, user.id),
         refundRateLimit(request, limits.day, user.id),
