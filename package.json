@@ -21,6 +21,7 @@
     "@napi-rs/canvas": "^0.1.100",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
+    "@vastai/tripo-sdk": "^0.1.1",
     "@vercel/blob": "^2.7.0",
     "draco3dgltf": "^1.5.7",
     "framer-motion": "^13.0.0",

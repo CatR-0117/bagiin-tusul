@@ -38,6 +38,7 @@ export function GenerationStatus({
 }) {
   const router = useRouter();
   const [stage, setStage] = useState<Stage>(stageForStatus(status));
+  const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(errorMessage ?? null);
   const [retrying, setRetrying] = useState(false);
 
@@ -54,6 +55,7 @@ export function GenerationStatus({
         const payload = (await response.json()) as {
           status?: string;
           stage?: string;
+          progress?: number;
           error?: string;
         };
         if (cancelled) return;
@@ -70,6 +72,9 @@ export function GenerationStatus({
           setStage(payload.stage);
         } else {
           setStage("generating");
+          if (typeof payload.progress === "number") {
+            setProgress(Math.min(100, Math.max(0, Math.round(payload.progress))));
+          }
         }
         timer = setTimeout(poll, 2_000);
       } catch {
@@ -128,7 +133,7 @@ export function GenerationStatus({
   }
 
   if (compact) {
-    return <div className="generating-compact"><Loader2 className="spin" size={16} /> {STAGES[stageIndex(stage)]?.label}</div>;
+    return <div className="generating-compact"><Loader2 className="spin" size={16} /> {STAGES[stageIndex(stage)]?.label}{stage === "generating" && progress !== null ? ` ${progress}%` : ""}</div>;
   }
 
   const activeIndex = stageIndex(stage);
@@ -145,7 +150,7 @@ export function GenerationStatus({
           return (
             <li key={item.key} className={done ? "done" : active ? "active" : ""}>
               {done ? <Check size={15} /> : active ? <Loader2 className="spin" size={15} /> : <Circle size={12} />}
-              <span>{item.label}</span>
+              <span>{item.label}{active && item.key === "generating" && progress !== null ? ` ${progress}%` : ""}</span>
             </li>
           );
         })}

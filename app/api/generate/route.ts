@@ -1,6 +1,11 @@
 import { getImageTo3DProvider } from "@/lib/ai/generate";
 import { getCurrentUser } from "@/lib/auth";
 import { getProjectForUser, updateProject } from "@/lib/projects";
+import {
+  rateLimit,
+  rateLimitConfig,
+  refundRateLimit,
+} from "@/lib/ratelimit";
 import { getObjectUrl } from "@/lib/r2/download";
 import { firstZodMessage, projectIdSchema } from "@/lib/validation";
 
@@ -24,11 +29,30 @@ export async function POST(request: Request) {
     );
   }
 
+  const limits = rateLimitConfig();
+  const hourly = await rateLimit(request, limits.hour);
+  if (!hourly.ok) {
+    return Response.json(
+      { error: "Нэг цагийн 3D үүсгэлтийн хязгаарт хүрлээ." },
+      { status: 429, headers: { "Retry-After": String(hourly.retryAfter) } },
+    );
+  }
+  const daily = await rateLimit(request, limits.day);
+  if (!daily.ok) {
+    await refundRateLimit(request, limits.hour);
+    return Response.json(
+      { error: "Өнөөдрийн 3D үүсгэлтийн хязгаарт хүрлээ." },
+      { status: 429, headers: { "Retry-After": String(daily.retryAfter) } },
+    );
+  }
+
+  let generationSubmitted = false;
   try {
     const sourceUrl = await getObjectUrl(project.source_image_key);
     if (!sourceUrl) throw new Error("Source image is unavailable.");
     const imageUrl = new URL(sourceUrl, request.url).toString();
     const job = await getImageTo3DProvider().generate({ imageUrl });
+    generationSubmitted = true;
     await updateProject(user.id, project.id, {
       ai_job_id: job.jobId,
       status: "generating",
@@ -36,6 +60,12 @@ export async function POST(request: Request) {
     });
     return Response.json({ job });
   } catch (error) {
+    if (!generationSubmitted) {
+      await Promise.all([
+        refundRateLimit(request, limits.hour),
+        refundRateLimit(request, limits.day),
+      ]);
+    }
     const message = error instanceof Error ? error.message : "Generation could not be started.";
     await updateProject(user.id, project.id, {
       status: "failed",
@@ -45,4 +75,3 @@ export async function POST(request: Request) {
     return Response.json({ error: message }, { status: 502 });
   }
 }
-

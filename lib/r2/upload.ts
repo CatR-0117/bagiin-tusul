@@ -33,5 +33,14 @@ export async function uploadRemoteFile(
   }
   const body = new Uint8Array(await response.arrayBuffer());
   if (body.byteLength === 0) throw new Error("The generated asset was empty.");
-  return uploadBuffer(key, body, contentType);
+  const remoteContentType = response.headers
+    .get("content-type")
+    ?.split(";", 1)[0]
+    .trim()
+    .toLowerCase();
+  const storedContentType =
+    contentType.startsWith("image/") && remoteContentType?.startsWith("image/")
+      ? remoteContentType
+      : contentType;
+  return uploadBuffer(key, body, storedContentType);
 }

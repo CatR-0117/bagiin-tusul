@@ -15,10 +15,11 @@ export const isR2Configured = () =>
       process.env.R2_BUCKET_NAME,
   );
 
-export const isMockAIEnabled = () =>
-  process.env.USE_MOCK_AI !== "false" ||
-  !process.env.AI_API_KEY ||
-  !process.env.AI_API_BASE_URL;
+export const isMockAIEnabled = () => {
+  if (process.env.USE_MOCK_AI === "true") return true;
+  if (process.env.USE_MOCK_AI === "false") return false;
+  return !process.env.TRIPO_API_KEY &&
+    (!process.env.AI_API_KEY || !process.env.AI_API_BASE_URL);
+};
 
 export const MAX_SOURCE_IMAGE_BYTES = 10 * 1024 * 1024;
-

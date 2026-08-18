@@ -159,9 +159,27 @@ Regenerate the bundled sample GLB if needed:
 node scripts/create-demo-glb.mjs
 ```
 
-## Connect a real image-to-3D API
+## Tripo3D image-to-3D
 
-The UI and API routes depend only on the normalized contract in `lib/ai/provider.ts`:
+The production provider uses Tripo3D's official v3 TypeScript SDK. Add the
+server-only API key and disable the bundled demo provider:
+
+```env
+TRIPO_API_KEY=tsk_your_key
+TRIPO_API_BASE_URL=https://openapi.tripo3d.ai/v3
+TRIPO_MODEL_VERSION=P1-20260311
+TRIPO_FACE_LIMIT=10000
+USE_MOCK_AI=false
+```
+
+Never prefix the API key with `NEXT_PUBLIC_`. The browser uploads only to this
+application; the server downloads the protected source image, uploads it to
+Tripo, and submits a textured PBR image-to-model task. The P1 preset and 10,000
+face target are selected for mobile AR, and can be changed with the variables
+above.
+
+The UI and API routes still depend only on the normalized contract in
+`lib/ai/provider.ts`:
 
 ```ts
 type GenerationJob = {
@@ -176,14 +194,22 @@ type GenerationResult = {
 }
 ```
 
-The included HTTP adapter expects:
+`lib/ai/tripo-provider.ts` maps Tripo's `queued`, `running`, `success`, and
+terminal failure states into that contract and includes generation progress.
+When Tripo finishes, the expiring GLB and preview URLs are copied immediately
+to R2. The existing model processor then optimizes web/Android GLBs and creates
+the iPhone USDZ before the project becomes AR-ready.
+
+An optional generic HTTP adapter remains available when `TRIPO_API_KEY` is not
+set. It expects:
 
 - `POST {AI_API_BASE_URL}/generate` with `{ "image_url": "SIGNED_SOURCE_URL" }`
 - `GET {AI_API_BASE_URL}/jobs/{jobId}`
 - snake_case responses such as `job_id`, `glb_url`, `usdz_url`, and `thumbnail_url`
 - `Authorization: Bearer {AI_API_KEY}`
 
-If a provider uses different endpoints or response fields, update only `lib/ai/http-provider.ts` or add another `ImageTo3DProvider`. Components and project routes should remain provider-independent.
+See [TRIPO-SETUP.md](TRIPO-SETUP.md) for the complete credential, storage,
+worker, HTTPS, iPhone, and Android checklist.
 
 When a job completes, the status endpoint stores only the provider GLB as the immutable original and queues derived-asset processing. See [MODEL-PROCESSING.md](MODEL-PROCESSING.md) for the worker deployment, retry, analysis, and optimization policy.
 
@@ -191,7 +217,7 @@ When a job completes, the status endpoint stores only the provider GLB as the im
 
 1. Import the repository into Vercel.
 2. The included `vercel.json` selects Next.js and runs `npm run build:next`.
-3. Add every variable from `.env.example` under Project Settings. Keep `SUPABASE_SERVICE_ROLE_KEY`, `R2_SECRET_ACCESS_KEY`, and `AI_API_KEY` server-only.
+3. Add every variable from `.env.example` under Project Settings. Keep `SUPABASE_SERVICE_ROLE_KEY`, `R2_SECRET_ACCESS_KEY`, `TRIPO_API_KEY`, and `AI_API_KEY` server-only.
 4. Add the production origin to Supabase redirects, Google OAuth origins, and R2 CORS.
 5. Set `NEXT_PUBLIC_APP_URL` to the production origin so generated QR routes use the correct host.
 6. Deploy the separate model-processor container described in [MODEL-PROCESSING.md](MODEL-PROCESSING.md).

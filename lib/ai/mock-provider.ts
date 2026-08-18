@@ -23,21 +23,22 @@ export class MockImageTo3DProvider implements ImageTo3DProvider {
       return { jobId, status: "failed", error: "Mock job was not found." };
     }
     if (elapsed < 1_500) {
-      return { jobId, status: "queued", stage: "preparing" };
+      return { jobId, status: "queued", stage: "preparing", progress: 5 };
     }
     if (elapsed < 3_500) {
-      return { jobId, status: "processing", stage: "geometry" };
+      return { jobId, status: "processing", stage: "geometry", progress: 35 };
     }
     if (elapsed < 5_000) {
-      return { jobId, status: "processing", stage: "processing" };
+      return { jobId, status: "processing", stage: "processing", progress: 70 };
     }
     if (elapsed < 6_500) {
-      return { jobId, status: "processing", stage: "finalizing" };
+      return { jobId, status: "processing", stage: "finalizing", progress: 92 };
     }
     return {
       jobId,
       status: "completed",
       stage: "complete",
+      progress: 100,
       result: {
         glbUrl: "/models/sofa.glb",
         usdzUrl: "/models/sofa.usdz",

@@ -16,6 +16,7 @@ export type GenerationResult = {
 export type GenerationStatus = GenerationJob & {
   result?: GenerationResult;
   error?: string;
+  progress?: number;
   stage?:
     | "preparing"
     | "geometry"
@@ -28,4 +29,3 @@ export interface ImageTo3DProvider {
   generate(input: Generate3DInput): Promise<GenerationJob>;
   getStatus(jobId: string): Promise<GenerationStatus>;
 }
-
